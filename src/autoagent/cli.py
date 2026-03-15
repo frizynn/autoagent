@@ -424,7 +424,7 @@ def _prepare_loop(
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    """Run the optimization loop (headless, --tui, or --jsonl)."""
+    """Run the optimization loop (headless or --jsonl)."""
     project_dir = _resolve_project_dir(args)
     sm = _resolve_sm(args)
 
@@ -438,25 +438,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     max_iterations = getattr(args, "max_iterations", None)
     budget = getattr(args, "budget", None)
     jsonl_mode = getattr(args, "jsonl", False)
-    tui_mode = getattr(args, "tui", False)
-
-    # --- TUI mode ---
-    if tui_mode:
-        try:
-            from autoagent.tui import run_tui
-        except ImportError:
-            print(
-                "Error: TUI requires the 'textual' package. "
-                "Install it with: pip install autoagent[tui]",
-                file=sys.stderr,
-            )
-            return 1
-
-        return run_tui(
-            project_dir=str(project_dir),
-            budget_usd=budget,
-            max_iterations=max_iterations,
-        )
 
     # --- JSONL mode ---
     event_callback = None
@@ -511,31 +492,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_watch(args: argparse.Namespace) -> int:
-    """Attach a live TUI to an already-running optimization loop."""
-    project_dir = _resolve_project_dir(args)
-    sm = StateManager(project_dir)
-
-    if not sm.is_initialized():
-        print(
-            f"Error: no autoagent project found at {sm.aa_dir}",
-            file=sys.stderr,
-        )
-        return 1
-
-    try:
-        from autoagent.tui import run_tui
-    except ImportError:
-        print(
-            "Error: TUI requires the 'textual' package. "
-            "Install it with: pip install autoagent[tui]",
-            file=sys.stderr,
-        )
-        return 1
-
-    return run_tui(project_dir=str(project_dir), watch_dir=project_dir)
-
-
 def cmd_experiments(args: argparse.Namespace) -> int:
     """List all experiments in this project."""
     project_dir = _resolve_project_dir(args)
@@ -560,24 +516,6 @@ def cmd_experiments(args: argparse.Namespace) -> int:
         print(f"{marker} {exp['name']:<20} {phase:<12} {iteration:>5} {best:>6} ${cost:>9.4f} {goal}")
 
     return 0
-
-
-def cmd_default(args: argparse.Namespace) -> int:
-    """Default command — launch the interactive TUI."""
-    project_dir = _resolve_project_dir(args)
-
-    try:
-        from autoagent.tui import run_tui
-    except ImportError:
-        print(
-            "TUI requires the 'textual' package. "
-            "Install it with: pip install autoagent[tui]\n"
-            "Or use 'autoagent status' for a plain-text summary.",
-            file=sys.stderr,
-        )
-        return 1
-
-    return run_tui(project_dir=str(project_dir))
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -665,15 +603,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Emit structured JSON lines to stdout (human output goes to stderr)",
     )
-    run_parser.add_argument(
-        "--tui",
-        action="store_true",
-        default=False,
-        help="Launch a live TUI dashboard (requires textual: pip install autoagent[tui])",
-    )
 
     sub.add_parser("report", help="Generate optimization report from archive data")
-    sub.add_parser("watch", help="Attach a live TUI to an already-running loop")
     sub.add_parser("experiments", help="List all experiments in this project")
 
     return parser
@@ -692,7 +623,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.command is None:
         # No subcommand → launch TUI dashboard
         try:
-            code = cmd_default(args)
+            code = cmd_status(args)
         except Exception as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
@@ -704,7 +635,6 @@ def main(argv: list[str] | None = None) -> None:
         "run": cmd_run,
         "status": cmd_status,
         "report": cmd_report,
-        "watch": cmd_watch,
         "experiments": cmd_experiments,
     }
 

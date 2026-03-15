@@ -156,14 +156,10 @@ class TestProjectDir:
 
 
 class TestMainDirect:
-    def test_main_no_command_launches_tui(self, capsys: pytest.CaptureFixture[str]) -> None:
-        """No subcommand → launches TUI (via cmd_default)."""
-        # We can't actually run the TUI in a CLI test, but we verify
-        # that cmd_default is dispatched (it tries to import tui)
-        # Since textual is installed, it would try to run the app.
-        # Just verify the dispatch path exists.
-        from autoagent.cli import cmd_default
-        assert callable(cmd_default)
+    def test_main_no_command_shows_status(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """No subcommand → falls back to cmd_status."""
+        from autoagent.cli import cmd_status
+        assert callable(cmd_status)
 
     def test_main_init_direct(self, tmp_path: Path) -> None:
         with pytest.raises(SystemExit) as exc_info:
