@@ -44,7 +44,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Home screen and subprocess loop runner** `risk:high` `depends:[]`
+- [x] **S01: Home screen and subprocess loop runner** `risk:high` `depends:[]`
   > After this: `autoagent` opens a TUI with project status, can start/stop an optimization run via subprocess, and shows live iteration progress
 - [ ] **S02: Interview flow inside TUI** `risk:high` `depends:[S01]`
   > After this: user can configure a new project via the multi-turn interview without leaving the TUI
