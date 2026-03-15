@@ -148,10 +148,10 @@ export default function (pi: ExtensionAPI) {
 
   // ── /autoagent command ─────────────────────────────────────────────────
   pi.registerCommand("autoagent", {
-    description: "AutoAgent — run, stop, status, new, or report",
+    description: "AutoAgent — go, run, stop, status, new, or report",
 
     getArgumentCompletions: (prefix: string) => {
-      const subcommands = ["run", "stop", "status", "new", "report"];
+      const subcommands = ["go", "run", "stop", "status", "new", "report"];
       const parts = prefix.trim().split(/\s+/);
 
       if (parts.length <= 1) {
@@ -176,6 +176,38 @@ export default function (pi: ExtensionAPI) {
       const subcommand = parts[0] || "run";
 
       switch (subcommand) {
+        case "go": {
+          // Agent-driven experiment loop — read program.md and let the LLM iterate
+          const projectDir = process.cwd();
+          const programPath = join(projectDir, ".autoagent", "program.md");
+          let programContent: string;
+
+          if (existsSync(programPath)) {
+            programContent = readFileSync(programPath, "utf-8");
+          } else {
+            // Use bundled program.md
+            try {
+              programContent = readFileSync(join(__extensionDir, "prompts", "program.md"), "utf-8");
+            } catch {
+              ctx.ui.notify("No program.md found. Use /autoagent new to set up a project.", "warning");
+              return;
+            }
+          }
+
+          ctx.ui.notify("⚡ Starting autonomous experiment loop...", "info");
+
+          // Dispatch the agent with program.md as context
+          pi.sendMessage(
+            {
+              customType: "autoagent-go",
+              content: `Read and follow this experiment protocol exactly. Begin the experiment loop now.\n\n${programContent}`,
+              display: false,
+            },
+            { triggerTurn: true },
+          );
+          return;
+        }
+
         case "run": {
           if (SubprocessManager.status().state === SubprocessState.Running) {
             ctx.ui.notify("Optimization already running. Use /autoagent stop first.", "warning");
