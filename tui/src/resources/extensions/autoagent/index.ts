@@ -19,13 +19,15 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@gsd/pi-coding-agent
 import { Key } from "@gsd/pi-tui";
 import { execFile } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { SubprocessManager } from "./subprocess-manager.js";
 import { AutoagentDashboardOverlay } from "./dashboard-overlay.js";
 import { AutoagentReportOverlay } from "./report-overlay.js";
 import { SubprocessState } from "./types.js";
 import { runInterview } from "./interview-runner.js";
 
+const __extensionDir = dirname(fileURLToPath(import.meta.url));
 let overlayOpen = false;
 
 function updateFooter(ctx: { ui: ExtensionCommandContext["ui"] }): void {
@@ -104,6 +106,46 @@ async function openReport(ctx: ExtensionCommandContext, markdown: string): Promi
 }
 
 export default function (pi: ExtensionAPI) {
+  // ── System prompt injection — tells the LLM it's AutoAgent ────────────
+  pi.on("before_agent_start", async (event: any) => {
+    let systemContent = "";
+    try {
+      const promptPath = join(__extensionDir, "prompts", "system.md");
+      systemContent = readFileSync(promptPath, "utf-8");
+    } catch {
+      systemContent = "You are AutoAgent — an autonomous optimization system for agentic architectures.";
+    }
+
+    return {
+      systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — AutoAgent]\n\n${systemContent}`,
+    };
+  });
+
+  // ── Startup header ────────────────────────────────────────────────────
+  pi.on("session_start", async (_event: any, ctx: any) => {
+    const version = process.env.AUTOAGENT_VERSION || "0.1.0";
+
+    // Check project status
+    const projectDir = process.cwd();
+    const statePath = join(projectDir, ".autoagent", "state.json");
+
+    let statusLine = "No project — use /autoagent new to configure";
+    if (existsSync(statePath)) {
+      try {
+        const state = JSON.parse(readFileSync(statePath, "utf-8"));
+        const configPath = join(projectDir, ".autoagent", "config.json");
+        const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf-8")) : {};
+        const goal = config.goal ? `"${config.goal}"` : "no goal set";
+        statusLine = `${state.phase} · iter ${state.current_iteration} · best #${state.best_iteration_id || "—"} · $${(state.total_cost_usd || 0).toFixed(4)} · ${goal}`;
+      } catch { /* ignore */ }
+    }
+
+    ctx.ui.notify(
+      `⚡ AutoAgent v${version}\n${statusLine}\n\nCommands: /autoagent run | stop | new | status | report\nDashboard: Ctrl+Alt+A`,
+      "info",
+    );
+  });
+
   // ── /autoagent command ─────────────────────────────────────────────────
   pi.registerCommand("autoagent", {
     description: "AutoAgent — run, stop, status, new, or report",
