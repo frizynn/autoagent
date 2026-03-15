@@ -16,7 +16,7 @@ M001 through M004 complete. The full user experience is implemented:
 - `autoagent run` executes the optimization loop with safety gates (TLA+ → leakage → sandbox evaluation → Pareto keep/discard).
 - `autoagent report` generates a structured markdown report with score trajectory, top architectures, cost breakdown, and recommendations.
 - Full cold-start flow proven end-to-end with MockLLM: interview → benchmark generation → optimization loop → report.
-- 469 tests passing. 19 requirements validated.
+- 469 tests passing. 19 requirements validated, 5 active (M002 search intelligence scope).
 
 ## Architecture / Key Patterns
 
@@ -33,6 +33,7 @@ M001 through M004 complete. The full user experience is implemented:
 - **Safety gate sequence** — TLA+ → leakage → evaluation (with sandbox) → Pareto keep/discard
 - **Graceful degradation** — safety gates skip with warnings when Java/Docker unavailable
 - **Multi-turn interview** — LLM-driven with vague-input detection and follow-up probes
+- **Automatic benchmark generation** — LLM-generated {input, expected} with leakage + diversity validation
 - **Composable report sections** — independently callable functions for targeted inspection
 
 ## Capability Contract
@@ -45,3 +46,9 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M002: Search Intelligence — Structural search, parameter optimization, exploration/exploitation, cold-start, archive compression
 - [x] M003: Safety & Verification — TLA+ verification, data leakage guardrail, Pareto evaluation, reward hacking defense, sandbox
 - [x] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting
+
+## Known Gaps
+
+- Real LLM provider wiring — `cmd_new` defaults to `MockLLM()`, real provider selection not wired
+- Benchmark path resolution inconsistency between `cmd_new` (relative) and `cmd_run` (absolute)
+- M002 search intelligence requirements (R011, R012, R013, R024) are active but mapped — await future milestone
