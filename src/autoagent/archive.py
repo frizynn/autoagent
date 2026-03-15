@@ -98,6 +98,7 @@ class ArchiveEntry:
     parent_iteration_id: int | None = None
     mutation_type: str | None = None
     tla_verification: dict[str, Any] | None = None
+    pareto_evaluation: dict[str, Any] | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Serialize to a plain dict suitable for JSON encoding."""
@@ -121,6 +122,7 @@ class ArchiveEntry:
             parent_iteration_id=d.get("parent_iteration_id"),
             mutation_type=d.get("mutation_type"),
             tla_verification=d.get("tla_verification"),
+            pareto_evaluation=d.get("pareto_evaluation"),
         )
 
 
@@ -173,6 +175,7 @@ class Archive:
         baseline_source: str | None = None,
         mutation_type: str | None = None,
         tla_verification: dict[str, Any] | None = None,
+        pareto_evaluation: dict[str, Any] | None = None,
     ) -> ArchiveEntry:
         """Archive one iteration atomically.
 
@@ -241,6 +244,7 @@ class Archive:
             parent_iteration_id=parent_iteration_id,
             mutation_type=mutation_type,
             tla_verification=tla_verification,
+            pareto_evaluation=pareto_evaluation,
         )
 
         # Write entry JSON atomically

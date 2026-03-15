@@ -28,17 +28,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Validation: unmapped
 - Notes: "ALWAYS CHECK IN EVERY STEP BEFORE RUNNING BENCHMARKS" — user's exact words. Could be via prompting or mechanical checks.
 
-### R010 — Multi-Metric Pareto Evaluation
-- Class: quality-attribute
-- Status: active
-- Description: Track multiple metrics (primary goal + latency + cost + code quality); reject changes that game primary metric at expense of others
-- Why it matters: Prevents reward hacking — user's nightmare is waking up to gamed metrics with degraded quality
-- Source: user
-- Primary owning slice: M003/S02
-- Supporting slices: M001/S03
-- Validation: unmapped
-- Notes: Meta-agent sees full metric vector, not scalar score
-
 ### R011 — Structural Search
 - Class: core-capability
 - Status: active
@@ -95,17 +84,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Validation: unmapped
 - Notes: Like GSD-2's provider agnosticism
 
-### R020 — Simplicity Criterion
-- Class: quality-attribute
-- Status: active
-- Description: Changes that add complexity for marginal gains are rejected — simpler is better, all else equal
-- Why it matters: Prevents reward hacking via complexity accumulation; keeps pipelines readable and debuggable
-- Source: research (autoresearch)
-- Primary owning slice: M003/S02
-- Supporting slices: none
-- Validation: unmapped
-- Notes: "A 0.001 improvement that adds 20 lines of hacky code? Probably not worth it." — autoresearch
-
 ### R021 — Sandbox Isolation for Pipeline Execution
 - Class: compliance/security
 - Status: active
@@ -140,6 +118,28 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Notes: Must be visible in archive — why the system chose to explore vs exploit
 
 ## Validated
+
+### R010 — Multi-Metric Pareto Evaluation
+- Class: quality-attribute
+- Status: validated
+- Description: Track multiple metrics (primary goal + latency + cost + code quality); reject changes that game primary metric at expense of others
+- Why it matters: Prevents reward hacking — user's nightmare is waking up to gamed metrics with degraded quality
+- Source: user
+- Primary owning slice: M003/S02
+- Supporting slices: M001/S03
+- Validation: validated — Pareto dominance across 4-metric vector (primary_score, latency_ms, cost_usd, complexity) with direction-aware comparison. pareto_dominates() checks standard dominance, pareto_decision() orchestrates with simplicity tiebreaker. Wired into loop replacing score-only comparison. 28 unit tests + loop integration. Contract-level proof in S02.
+- Notes: Meta-agent sees full metric vector, not scalar score
+
+### R020 — Simplicity Criterion
+- Class: quality-attribute
+- Status: validated
+- Description: Changes that add complexity for marginal gains are rejected — simpler is better, all else equal
+- Why it matters: Prevents reward hacking via complexity accumulation; keeps pipelines readable and debuggable
+- Source: research (autoresearch)
+- Primary owning slice: M003/S02
+- Supporting slices: none
+- Validation: validated — AST-based compute_complexity() scores code complexity. Incomparable Pareto candidates resolved by preferring simpler source (D042). Equal complexity → conservative discard. Unparseable source → float('inf') → always loses. 28 unit tests prove all branches. Contract-level proof in S02.
+- Notes: "A 0.001 improvement that adds 20 lines of hacky code? Probably not worth it." — autoresearch
 
 ### R001 — Autonomous Optimization Loop
 - Class: core-capability
@@ -312,7 +312,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |
 | R008 | core-capability | validated | M001/S03 | M004/S02 | validated (S03+S05) |
 | R009 | quality-attribute | active | M003/S03 | M001/S03 | unmapped |
-| R010 | quality-attribute | active | M003/S02 | M001/S03 | unmapped |
+| R010 | quality-attribute | validated | M003/S02 | M001/S03 | validated (S02) |
 | R011 | core-capability | active | M002/S02 | M002/S04 | unmapped |
 | R012 | core-capability | active | M002/S03 | M002/S04 | unmapped |
 | R013 | core-capability | active | M002/S04 | M002/S01 | unmapped |
@@ -322,7 +322,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R017 | operability | validated | M001/S06 | M004/S04 | validated (S06) |
 | R018 | integration | active | M001/S01 | none | unmapped |
 | R019 | primary-user-loop | validated | M001/S06 | M004/S04 | validated (S05+S06) |
-| R020 | quality-attribute | active | M003/S02 | none | unmapped |
+| R020 | quality-attribute | validated | M003/S02 | none | validated (S02) |
 | R021 | compliance/security | active | M003/S04 | none | unmapped |
 | R022 | operability | validated | M001/S03 | none | validated (S03+S05) |
 | R023 | core-capability | active | M004/S02 | M003/S04 | unmapped |
@@ -332,7 +332,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 11
+- Active requirements: 9
 - Mapped to slices: 24
-- Validated: 13
+- Validated: 15
 - Unmapped active requirements: 0

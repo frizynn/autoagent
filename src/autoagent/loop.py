@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from autoagent.archive import Archive, ArchiveEntry
+from autoagent.pareto import ParetoResult, compute_complexity, pareto_decision
 from autoagent.benchmark import Benchmark
 from autoagent.evaluation import EvaluationResult, Evaluator, ExampleResult
 from autoagent.meta_agent import MetaAgent, ProposalResult
@@ -151,6 +152,7 @@ class OptimizationLoop:
             # Read current best source from disk
             current_best_source = pipeline_path.read_text(encoding="utf-8")
             best_score: float | None = None
+            best_metrics: dict | None = None
             best_iteration_id = state.best_iteration_id
             total_cost = state.total_cost_usd
             iteration = state.current_iteration
@@ -167,6 +169,18 @@ class OptimizationLoop:
                 if best_kept:
                     entry = best_kept[0]
                     best_score = entry.evaluation_result["primary_score"]
+                    # Reconstruct best_metrics for Pareto comparison
+                    _eval_metrics = entry.evaluation_result.get("metrics") or {}
+                    best_metrics = {
+                        "primary_score": best_score,
+                        "latency_ms": _eval_metrics.get("latency_ms", 0.0),
+                        "cost_usd": _eval_metrics.get("cost_usd", 0.0),
+                    }
+                    # Use stored complexity if available, else recompute
+                    _pareto_eval = entry.pareto_evaluation or {}
+                    _stored_cand = (_pareto_eval.get("candidate_metrics") or {})
+                    if "complexity" in _stored_cand:
+                        best_metrics["complexity"] = _stored_cand["complexity"]
                     # Restore pipeline source from archive snapshot
                     archive_pipeline = (
                         self.archive.archive_dir
@@ -393,14 +407,28 @@ class OptimizationLoop:
 
                 score = eval_result.primary_score
 
-                # Decision: keep if score >= best (or first successful eval)
-                if best_score is None or score >= best_score:
-                    decision = "keep"
+                # Build candidate metrics vector for Pareto comparison
+                candidate_metrics: dict = {
+                    "primary_score": score,
+                    "latency_ms": eval_result.metrics.latency_ms if eval_result.metrics else 0.0,
+                    "cost_usd": eval_result.metrics.cost_usd if eval_result.metrics else 0.0,
+                    "complexity": compute_complexity(proposal.proposed_source),
+                }
+
+                # Pareto decision: keep/discard based on multi-objective dominance
+                pareto_result = pareto_decision(
+                    candidate_metrics=candidate_metrics,
+                    current_best_metrics=best_metrics,
+                    candidate_source=proposal.proposed_source,
+                    best_source=current_best_source,
+                )
+                decision = pareto_result.decision
+
+                if decision == "keep":
                     best_score = score
+                    best_metrics = candidate_metrics.copy()
                     current_best_source = proposal.proposed_source
                     best_iteration_id = str(self.archive._next_iteration_id())
-                else:
-                    decision = "discard"
 
                 # Classify mutation type from diff
                 parent_id = (
@@ -434,6 +462,12 @@ class OptimizationLoop:
                     ),
                     mutation_type=mt,
                     tla_verification=tla_verification,
+                    pareto_evaluation={
+                        "decision": pareto_result.decision,
+                        "rationale": pareto_result.rationale,
+                        "candidate_metrics": pareto_result.candidate_metrics,
+                        "best_metrics": pareto_result.best_metrics,
+                    },
                 )
 
                 if decision == "keep":

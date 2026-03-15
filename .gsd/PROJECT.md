@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 and M002 complete. M003 in progress — S01 (TLA+ Verification Gate) complete. The TLA+ verification gate generates specs via LLM, model-checks via TLC subprocess with genefication retry, and blocks failing proposals before evaluation. Graceful degradation when Java/TLC unavailable. 303 tests passing (267 prior + 36 new). 13 requirements validated (R001-R006, R008, R014, R015, R016, R017, R019, R022).
+M001 and M002 complete. M003 in progress — S01 (TLA+ Verification Gate) and S02 (Pareto Evaluation) complete. The optimization loop now uses Pareto dominance across (primary_score, latency, cost, complexity) instead of single-score comparison, with simplicity tiebreaker for incomparable pipelines. 331 tests passing. 15 requirements validated (R001-R006, R008, R010, R014, R015, R016, R017, R019, R020, R022).
 
-Next: M003/S02 (Pareto Evaluation with Simplicity Criterion).
+Next: M003/S03 (Data Leakage Detection).
 
 ## Architecture / Key Patterns
 

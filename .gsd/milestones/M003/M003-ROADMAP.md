@@ -55,7 +55,7 @@ This milestone is complete only when all are true:
 
 - [x] **S01: TLA+ Verification Gate** `risk:high` `depends:[]`
   > After this: `autoagent run` generates a TLA+ spec for each proposed pipeline, runs TLC model checker, and rejects proposals that fail verification — proven with mock TLC subprocess and unit tests. When Java/TLC is unavailable, the gate is skipped with a warning.
-- [ ] **S02: Pareto Evaluation with Simplicity Criterion** `risk:medium` `depends:[]`
+- [x] **S02: Pareto Evaluation with Simplicity Criterion** `risk:medium` `depends:[]`
   > After this: the keep/discard decision uses Pareto dominance across (primary_score, latency, cost, complexity) instead of single-score comparison. Pipelines that game one metric at the expense of others are rejected. Incomparable pipelines resolved by preferring simpler code.
 - [ ] **S03: Data Leakage Detection** `risk:medium` `depends:[]`
   > After this: every evaluation is preceded by a leakage check — exact train/test example overlap blocks the iteration, fuzzy n-gram overlap generates a warning. Proven with synthetic contaminated benchmarks in tests.
