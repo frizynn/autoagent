@@ -89,7 +89,7 @@ class TestRun:
         run_cli("--project-dir", str(tmp_path), "init")
         result = run_cli("--project-dir", str(tmp_path), "run")
         assert result.returncode == 1
-        assert "no benchmark dataset_path configured" in result.stderr
+        assert "benchmark dataset_path configured" in result.stderr.lower()
 
     def test_run_uninitialized(self, tmp_path: Path) -> None:
         result = run_cli("--project-dir", str(tmp_path), "run")
@@ -156,12 +156,13 @@ class TestProjectDir:
 
 
 class TestMainDirect:
-    def test_main_no_command_shows_help(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_main_no_command_no_project_exits_1(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """No subcommand + no project → exit 1 with guidance."""
         with pytest.raises(SystemExit) as exc_info:
             main([])
-        assert exc_info.value.code == 0
+        assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "autoagent" in captured.out
+        assert "autoagent init" in captured.err
 
     def test_main_init_direct(self, tmp_path: Path) -> None:
         with pytest.raises(SystemExit) as exc_info:

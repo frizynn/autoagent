@@ -14,12 +14,12 @@ from pathlib import Path
 
 from autoagent.archive import Archive
 from autoagent.benchmark import Benchmark
-from autoagent.benchmark_gen import BenchmarkGenerator, GenerationResult
+from autoagent.benchmark_gen import BenchmarkGenerator
 from autoagent.evaluation import Evaluator
-from autoagent.interview import InterviewOrchestrator, SequenceMockLLM
+from autoagent.interview import InterviewOrchestrator
 from autoagent.loop import OptimizationLoop
 from autoagent.meta_agent import MetaAgent
-from autoagent.primitives import MetricsCollector, MockLLM, PrimitivesContext, MockRetriever
+from autoagent.primitives import MetricsCollector, MockLLM, MockRetriever, PrimitivesContext
 from autoagent.report import generate_report
 from autoagent.state import STARTER_PIPELINE, LockError, StateManager
 
@@ -64,7 +64,7 @@ def cmd_new(args: argparse.Namespace) -> int:
     json_mode = getattr(args, "json", False)
 
     # In JSON mode: redirect builtins.print to stderr (same pattern as cmd_run --jsonl)
-    original_print = print  # noqa: T202
+    original_print = print
     if json_mode:
         import builtins
 
@@ -200,7 +200,7 @@ def _cmd_new_inner(
         goal = config.goal or "(not set)"
         metric_count = len(config.metric_priorities)
         constraint_count = len(config.constraints)
-        print(f"\nProject configured:")
+        print("\nProject configured:")
         print(f"  Goal:        {goal}")
         print(f"  Metrics:     {metric_count}")
         print(f"  Constraints: {constraint_count}")
@@ -321,52 +321,42 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_run(args: argparse.Namespace) -> int:
-    """Run the optimization loop."""
-    project_dir = _resolve_project_dir(args)
-    sm = StateManager(project_dir)
+def _prepare_loop(
+    project_dir: Path,
+    sm: StateManager,
+    max_iterations: int | None = None,
+    budget: float | None = None,
+    event_callback: object | None = None,
+) -> OptimizationLoop:
+    """Set up all components and return a ready-to-run OptimizationLoop.
 
-    if not sm.is_initialized():
-        print(
-            f"Error: no autoagent project found at {sm.aa_dir}",
-            file=sys.stderr,
-        )
-        return 1
-
-    # Read config
+    Handles config reading, benchmark loading, cold-start detection,
+    and budget persistence.  Raises on errors (caller decides how to surface).
+    """
     config = sm.read_config()
     goal = config.goal or "Optimize the pipeline."
 
-    # Load benchmark
     benchmark_cfg = config.benchmark
     dataset_path = benchmark_cfg.get("dataset_path", "")
     scoring_function = benchmark_cfg.get("scoring_function", "exact_match")
 
     if not dataset_path:
-        print("Error: no benchmark dataset_path configured.", file=sys.stderr)
-        return 1
+        raise ValueError("No benchmark dataset_path configured.")
 
-    # Resolve dataset_path relative to project dir
     resolved_dataset = Path(dataset_path)
     if not resolved_dataset.is_absolute():
         resolved_dataset = project_dir / resolved_dataset
 
-    try:
-        benchmark = Benchmark.from_file(resolved_dataset, scoring_function)
-    except (FileNotFoundError, ValueError) as exc:
-        print(f"Error: could not load benchmark: {exc}", file=sys.stderr)
-        return 1
+    benchmark = Benchmark.from_file(resolved_dataset, scoring_function)
 
-    # Set up components
     archive = Archive(sm.archive_dir)
     evaluator = Evaluator()
 
-    # LLM for the meta-agent — MockLLM for now; real provider plugged in later
     collector = MetricsCollector()
     llm = MockLLM(collector=collector)
     meta_agent = MetaAgent(llm=llm, goal=goal)
 
-    # -- Cold-start detection -------------------------------------------------
+    # Cold-start detection
     current_source = sm.pipeline_path.read_text(encoding="utf-8")
     if current_source == STARTER_PIPELINE:
         print("Cold-start: generating initial pipeline from benchmark…")
@@ -396,13 +386,72 @@ def cmd_run(args: argparse.Namespace) -> int:
             collector=c,
         )
 
+    # Persist budget to config if provided
+    if budget is not None:
+        from dataclasses import replace
+        config = replace(config, budget_usd=budget)
+        sm.write_config(config)
+
+    return OptimizationLoop(
+        state_manager=sm,
+        archive=archive,
+        evaluator=evaluator,
+        meta_agent=meta_agent,
+        benchmark=benchmark,
+        primitives_factory=primitives_factory,
+        max_iterations=max_iterations,
+        budget_usd=budget if budget is not None else config.budget_usd,
+        event_callback=event_callback,
+    )
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Run the optimization loop (headless, --tui, or --jsonl)."""
+    project_dir = _resolve_project_dir(args)
+    sm = StateManager(project_dir)
+
+    if not sm.is_initialized():
+        print(
+            f"Error: no autoagent project found at {sm.aa_dir}",
+            file=sys.stderr,
+        )
+        return 1
+
     max_iterations = getattr(args, "max_iterations", None)
     budget = getattr(args, "budget", None)
     jsonl_mode = getattr(args, "jsonl", False)
+    tui_mode = getattr(args, "tui", False)
 
-    # JSONL mode: structured events on stdout, human output on stderr
+    # --- TUI mode ---
+    if tui_mode:
+        try:
+            from autoagent.tui import run_tui
+        except ImportError:
+            print(
+                "Error: TUI requires the 'textual' package. "
+                "Install it with: pip install autoagent[tui]",
+                file=sys.stderr,
+            )
+            return 1
+
+        def loop_factory(event_callback: object = None) -> object:
+            loop = _prepare_loop(
+                project_dir, sm,
+                max_iterations=max_iterations,
+                budget=budget,
+                event_callback=event_callback,
+            )
+            return loop.run()
+
+        return run_tui(
+            loop_factory=loop_factory,
+            budget_usd=budget,
+            max_iterations=max_iterations,
+        )
+
+    # --- JSONL mode ---
     event_callback = None
-    original_print = print  # noqa: T202
+    original_print = print
     if jsonl_mode:
         import builtins
 
@@ -416,25 +465,14 @@ def cmd_run(args: argparse.Namespace) -> int:
             sys.stdout.write(json.dumps(event) + "\n")
             sys.stdout.flush()
 
-    # Persist budget to config if provided
-    if budget is not None:
-        from dataclasses import replace
-        config = replace(config, budget_usd=budget)
-        sm.write_config(config)
-
-    loop = OptimizationLoop(
-        state_manager=sm,
-        archive=archive,
-        evaluator=evaluator,
-        meta_agent=meta_agent,
-        benchmark=benchmark,
-        primitives_factory=primitives_factory,
-        max_iterations=max_iterations,
-        budget_usd=budget if budget is not None else config.budget_usd,
-        event_callback=event_callback,
-    )
-
+    # --- Headless mode ---
     try:
+        loop = _prepare_loop(
+            project_dir, sm,
+            max_iterations=max_iterations,
+            budget=budget,
+            event_callback=event_callback,
+        )
         final_state = loop.run()
     except LockError as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -449,21 +487,82 @@ def cmd_run(args: argparse.Namespace) -> int:
             builtins.print = original_print  # type: ignore[assignment]
         return 1
 
-    # Print summary
     if final_state.phase == "paused":
         print("Paused (budget).")
     else:
-        print(f"Optimization complete.")
+        print("Optimization complete.")
     print(f"  Iterations: {final_state.current_iteration}")
     print(f"  Best iteration: {final_state.best_iteration_id or '—'}")
     print(f"  Total cost (USD): ${final_state.total_cost_usd:.4f}")
 
-    # Restore builtins.print if we overrode it
     if jsonl_mode:
         import builtins
         builtins.print = original_print  # type: ignore[assignment]
 
     return 0
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Attach a live TUI to an already-running optimization loop."""
+    project_dir = _resolve_project_dir(args)
+    sm = StateManager(project_dir)
+
+    if not sm.is_initialized():
+        print(
+            f"Error: no autoagent project found at {sm.aa_dir}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        from autoagent.tui import run_tui
+    except ImportError:
+        print(
+            "Error: TUI requires the 'textual' package. "
+            "Install it with: pip install autoagent[tui]",
+            file=sys.stderr,
+        )
+        return 1
+
+    return run_tui(watch_dir=project_dir)
+
+
+def cmd_default(args: argparse.Namespace) -> int:
+    """Default command — launch the TUI dashboard.
+
+    If a project is initialized, shows the status TUI.
+    Otherwise prints help.
+    """
+    project_dir = _resolve_project_dir(args)
+    sm = StateManager(project_dir)
+
+    if not sm.is_initialized():
+        print(
+            "No autoagent project found in this directory.\n"
+            "Run 'autoagent init' to create one, or 'autoagent --help' for usage.",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        from autoagent.tui import run_tui
+    except ImportError:
+        print(
+            "TUI requires the 'textual' package. "
+            "Install it with: pip install autoagent[tui]\n"
+            "Or use 'autoagent status' for a plain-text summary.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Check if a loop is currently running (lock held by another process)
+    state = sm.read_state()
+    if state.phase == "running" and sm.lock_path.exists():
+        # Attach as watcher
+        return run_tui(watch_dir=project_dir)
+
+    # Otherwise show the status dashboard (watch mode, reads state.json)
+    return run_tui(watch_dir=project_dir)
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -546,8 +645,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Emit structured JSON lines to stdout (human output goes to stderr)",
     )
+    run_parser.add_argument(
+        "--tui",
+        action="store_true",
+        default=False,
+        help="Launch a live TUI dashboard (requires textual: pip install autoagent[tui])",
+    )
 
     sub.add_parser("report", help="Generate optimization report from archive data")
+    sub.add_parser("watch", help="Attach a live TUI to an already-running loop")
 
     return parser
 
@@ -563,8 +669,13 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command is None:
-        parser.print_help()
-        sys.exit(0)
+        # No subcommand → launch TUI dashboard
+        try:
+            code = cmd_default(args)
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
+        sys.exit(code)
 
     dispatch = {
         "init": cmd_init,
@@ -572,6 +683,7 @@ def main(argv: list[str] | None = None) -> None:
         "run": cmd_run,
         "status": cmd_status,
         "report": cmd_report,
+        "watch": cmd_watch,
     }
 
     handler = dispatch.get(args.command)
