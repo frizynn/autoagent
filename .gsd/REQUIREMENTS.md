@@ -6,70 +6,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Active
 
-### R001 — Autonomous Optimization Loop
-- Class: core-capability
-- Status: active
-- Description: System runs an infinite propose→evaluate→keep/discard loop without human intervention until interrupted or budget exhausted
-- Why it matters: This is the entire product — autonomous architecture search
-- Source: user
-- Primary owning slice: M001/S05
-- Supporting slices: M001/S06
-- Validation: validated — Loop runs ≥3 autonomous iterations with keep/discard decisions, state persistence, and archive entries (S05, 10 integration tests). Budget/interrupt handling in S06.
-
-### R002 — Single-File Mutation Constraint
-- Class: constraint
-- Status: active
-- Description: All pipeline mutations are constrained to a single `pipeline.py` file — clean diffs, reviewable, tractable search space
-- Why it matters: Prevents search space explosion, keeps every iteration a clean diff
-- Source: user
-- Primary owning slice: M001/S01
-- Supporting slices: M001/S05
-- Validation: validated — MetaAgent outputs complete pipeline.py; loop writes/restores only pipeline.py (S01 + S05).
-
-### R003 — Instrumented Primitives
-- Class: core-capability
-- Status: active
-- Description: Pipeline building blocks (LLM, Retriever, Tool, Agent) auto-measure latency, tokens, and cost without user instrumentation
-- Why it matters: Gives the meta-agent rich multi-dimensional signals beyond just accuracy
-- Source: user
-- Primary owning slice: M001/S01
-- Supporting slices: M001/S03
-- Validation: validated — Primitives integrated into optimization loop via Evaluator; metrics captured per-iteration in S05.
-- Notes: Provider-agnostic — must work with OpenAI, Anthropic, local models, any retrieval backend
-
-### R004 — Monotonic Archive
-- Class: core-capability
-- Status: active
-- Description: Every attempt (success or failure) is recorded with full metrics, diffs, and rationale — archive grows monotonically, never pruned
-- Why it matters: Failures are as valuable as successes; the meta-agent learns from the full history
-- Source: user
-- Primary owning slice: M001/S04
-- Supporting slices: M002/S01
-- Validation: validated — Archive wired into optimization loop; every iteration (success or failure) recorded with metrics and rationale (S04 + S05).
-- Notes: Must include metrics vector, pipeline diff, meta-agent rationale, timestamp
-
-### R005 — Crash-Recoverable Disk State
-- Class: continuity
-- Status: active
-- Description: All state lives on disk in `.autoagent/`. Kill at any point, restart, continue from last committed iteration
-- Why it matters: Overnight runs must survive crashes — no lost work
-- Source: user
-- Primary owning slice: M001/S06
-- Supporting slices: M001/S02
-- Validation: validated — Atomic writes and PID-based lock (S02). Full crash recovery: resume from archive with best_score reconstruction, pipeline.py restoration from archive's best kept entry, iteration continuity across restarts (S06, 7 tests).
-- Notes: GSD-2 style — lock files, state reconstruction from disk
-
-### R006 — PI-Based CLI
-- Class: core-capability
-- Status: active
-- Description: CLI built on PI SDK with GSD-2 style commands (`autoagent init`, `autoagent run`, `autoagent status`)
-- Why it matters: Consistent UX with GSD-2, leverages PI's agent harness for the meta-agent
-- Source: user
-- Primary owning slice: M001/S02
-- Supporting slices: M004/S05
-- Validation: validated — cmd_run wired to OptimizationLoop in S05; init/status/run all functional via argparse.
-- Notes: Meta-agent runs on user's coding agent subscription (Claude Code Max, Codex, etc.). Reinterpreted as standard Python CLI per D017.
-
 ### R007 — GSD-2 Depth Interview Phase
 - Class: primary-user-loop
 - Status: active
@@ -80,17 +16,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Supporting slices: M004/S02, M004/S03
 - Validation: unmapped
 - Notes: Must probe gray areas, not just collect inputs
-
-### R008 — Benchmark-Driven Evaluation
-- Class: core-capability
-- Status: active
-- Description: Every iteration is scored against an explicit benchmark dataset + scoring function — always try to have something explicit
-- Why it matters: Without explicit measurement, optimization is blind
-- Source: user
-- Primary owning slice: M001/S03
-- Supporting slices: M004/S02
-- Validation: validated — Evaluator integrated into optimization loop; every iteration scored against benchmark (S03 + S05).
-- Notes: If user provides no benchmark, system should create one (see R023)
 
 ### R009 — Data Leakage Guardrail
 - Class: quality-attribute
@@ -180,17 +105,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Validation: unmapped
 - Notes: Like GSD-2's summary compression for downstream tasks
 
-### R017 — Hard Budget Ceiling with Auto-Pause
-- Class: operability
-- Status: active
-- Description: Dollar ceiling that auto-pauses the loop before overspending — user can run on Claude Code Max subscription or similar
-- Why it matters: Overnight runs must not drain accounts
-- Source: user
-- Primary owning slice: M001/S06
-- Supporting slices: M004/S04
-- Validation: validated — Hard ceiling check before each iteration, pre-iteration cost estimation using global average, phase="paused" on budget exhaustion (S06, 2 tests).
-- Notes: Budget tracks both meta-agent LLM cost and pipeline evaluation cost
-
 ### R018 — Provider-Agnostic Primitives
 - Class: integration
 - Status: active
@@ -201,17 +115,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Supporting slices: none
 - Validation: unmapped
 - Notes: Like GSD-2's provider agnosticism
-
-### R019 — Fire-and-Forget Operation
-- Class: primary-user-loop
-- Status: active
-- Description: Launch with goal and budget, check results later — system runs completely unattended
-- Why it matters: The core UX — start at 11pm, check at 8am, be surprised by genuine improvements
-- Source: user
-- Primary owning slice: M001/S06
-- Supporting slices: M004/S04
-- Validation: validated — Autonomous loop (S05) + budget ceiling auto-pause (S06) + crash recovery with resume (S06) together prove unattended operation. No human-in-the-loop per iteration.
-- Notes: No interactive approval, no human-in-the-loop per iteration
 
 ### R020 — Simplicity Criterion
 - Class: quality-attribute
@@ -234,17 +137,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Supporting slices: none
 - Validation: unmapped
 - Notes: Critical for unattended overnight runs
-
-### R022 — Fixed Evaluation Time Budget
-- Class: operability
-- Status: active
-- Description: Each evaluation has a fixed time budget — prevents runaway evaluations from blocking the loop
-- Why it matters: One stuck evaluation shouldn't halt overnight progress
-- Source: research (autoresearch)
-- Primary owning slice: M001/S03
-- Supporting slices: none
-- Validation: validated — Per-example timeout implemented in S03, wired into optimization loop in S05. Timeout → score 0.0, discard, continue.
-- Notes: Timeout → treat as failure, discard, move on
 
 ### R023 — Automatic Benchmark Generation
 - Class: core-capability
@@ -270,7 +162,113 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Validated
 
-(none yet)
+### R001 — Autonomous Optimization Loop
+- Class: core-capability
+- Status: validated
+- Description: System runs an infinite propose→evaluate→keep/discard loop without human intervention until interrupted or budget exhausted
+- Why it matters: This is the entire product — autonomous architecture search
+- Source: user
+- Primary owning slice: M001/S05
+- Supporting slices: M001/S06
+- Validation: validated — Loop runs ≥3 autonomous iterations with keep/discard decisions, state persistence, and archive entries (S05, 10 integration tests). Budget/interrupt handling in S06.
+
+### R002 — Single-File Mutation Constraint
+- Class: constraint
+- Status: validated
+- Description: All pipeline mutations are constrained to a single `pipeline.py` file — clean diffs, reviewable, tractable search space
+- Why it matters: Prevents search space explosion, keeps every iteration a clean diff
+- Source: user
+- Primary owning slice: M001/S01
+- Supporting slices: M001/S05
+- Validation: validated — MetaAgent outputs complete pipeline.py; loop writes/restores only pipeline.py (S01 + S05).
+
+### R003 — Instrumented Primitives
+- Class: core-capability
+- Status: validated
+- Description: Pipeline building blocks (LLM, Retriever, Tool, Agent) auto-measure latency, tokens, and cost without user instrumentation
+- Why it matters: Gives the meta-agent rich multi-dimensional signals beyond just accuracy
+- Source: user
+- Primary owning slice: M001/S01
+- Supporting slices: M001/S03
+- Validation: validated — Primitives integrated into optimization loop via Evaluator; metrics captured per-iteration in S05.
+- Notes: Provider-agnostic — must work with OpenAI, Anthropic, local models, any retrieval backend
+
+### R004 — Monotonic Archive
+- Class: core-capability
+- Status: validated
+- Description: Every attempt (success or failure) is recorded with full metrics, diffs, and rationale — archive grows monotonically, never pruned
+- Why it matters: Failures are as valuable as successes; the meta-agent learns from the full history
+- Source: user
+- Primary owning slice: M001/S04
+- Supporting slices: M002/S01
+- Validation: validated — Archive wired into optimization loop; every iteration (success or failure) recorded with metrics and rationale (S04 + S05).
+- Notes: Must include metrics vector, pipeline diff, meta-agent rationale, timestamp
+
+### R005 — Crash-Recoverable Disk State
+- Class: continuity
+- Status: validated
+- Description: All state lives on disk in `.autoagent/`. Kill at any point, restart, continue from last committed iteration
+- Why it matters: Overnight runs must survive crashes — no lost work
+- Source: user
+- Primary owning slice: M001/S06
+- Supporting slices: M001/S02
+- Validation: validated — Atomic writes and PID-based lock (S02). Full crash recovery: resume from archive with best_score reconstruction, pipeline.py restoration from archive's best kept entry, iteration continuity across restarts (S06, 7 tests).
+- Notes: GSD-2 style — lock files, state reconstruction from disk
+
+### R006 — PI-Based CLI
+- Class: core-capability
+- Status: validated
+- Description: CLI built on PI SDK with GSD-2 style commands (`autoagent init`, `autoagent run`, `autoagent status`)
+- Why it matters: Consistent UX with GSD-2, leverages PI's agent harness for the meta-agent
+- Source: user
+- Primary owning slice: M001/S02
+- Supporting slices: M004/S05
+- Validation: validated — cmd_run wired to OptimizationLoop in S05; init/status/run all functional via argparse.
+- Notes: Meta-agent runs on user's coding agent subscription (Claude Code Max, Codex, etc.). Reinterpreted as standard Python CLI per D017.
+
+### R008 — Benchmark-Driven Evaluation
+- Class: core-capability
+- Status: validated
+- Description: Every iteration is scored against an explicit benchmark dataset + scoring function — always try to have something explicit
+- Why it matters: Without explicit measurement, optimization is blind
+- Source: user
+- Primary owning slice: M001/S03
+- Supporting slices: M004/S02
+- Validation: validated — Evaluator integrated into optimization loop; every iteration scored against benchmark (S03 + S05).
+- Notes: If user provides no benchmark, system should create one (see R023)
+
+### R017 — Hard Budget Ceiling with Auto-Pause
+- Class: operability
+- Status: validated
+- Description: Dollar ceiling that auto-pauses the loop before overspending — user can run on Claude Code Max subscription or similar
+- Why it matters: Overnight runs must not drain accounts
+- Source: user
+- Primary owning slice: M001/S06
+- Supporting slices: M004/S04
+- Validation: validated — Hard ceiling check before each iteration, pre-iteration cost estimation using global average, phase="paused" on budget exhaustion (S06, 2 tests).
+- Notes: Budget tracks both meta-agent LLM cost and pipeline evaluation cost
+
+### R019 — Fire-and-Forget Operation
+- Class: primary-user-loop
+- Status: validated
+- Description: Launch with goal and budget, check results later — system runs completely unattended
+- Why it matters: The core UX — start at 11pm, check at 8am, be surprised by genuine improvements
+- Source: user
+- Primary owning slice: M001/S06
+- Supporting slices: M004/S04
+- Validation: validated — Autonomous loop (S05) + budget ceiling auto-pause (S06) + crash recovery with resume (S06) together prove unattended operation. No human-in-the-loop per iteration.
+- Notes: No interactive approval, no human-in-the-loop per iteration
+
+### R022 — Fixed Evaluation Time Budget
+- Class: operability
+- Status: validated
+- Description: Each evaluation has a fixed time budget — prevents runaway evaluations from blocking the loop
+- Why it matters: One stuck evaluation shouldn't halt overnight progress
+- Source: research (autoresearch)
+- Primary owning slice: M001/S03
+- Supporting slices: none
+- Validation: validated — Per-example timeout implemented in S03, wired into optimization loop in S05. Timeout → score 0.0, discard, continue.
+- Notes: Timeout → treat as failure, discard, move on
 
 ## Deferred
 

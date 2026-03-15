@@ -10,7 +10,7 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 complete. All 6 slices delivered. The full autonomous optimization loop works end-to-end: `autoagent init` scaffolds a project, `autoagent run` executes autonomous iterations where MetaAgent proposes pipeline mutations, Evaluator scores them against benchmarks, and OptimizationLoop keeps or discards based on metrics. Budget ceiling auto-pauses before overspending. Crash recovery resumes from last committed iteration with archive state reconstruction. 181 tests passing across all modules.
+M001 complete. All 6 slices delivered and verified. The full autonomous optimization loop works end-to-end: `autoagent init` scaffolds a project, `autoagent run` executes autonomous iterations where MetaAgent proposes pipeline mutations, Evaluator scores them against benchmarks, and OptimizationLoop keeps or discards based on metrics. Budget ceiling auto-pauses before overspending. Crash recovery resumes from last committed iteration with archive state reconstruction. 181 tests passing across all modules. 10 requirements validated (R001-R006, R008, R017, R019, R022).
 
 Next: M002 (Search Intelligence) — structural search, parameter optimization, exploration/exploitation, cold-start, archive compression.
 
