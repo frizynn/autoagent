@@ -37,22 +37,22 @@ function syncResources(): void {
   const extDst = join(agentDir, 'extensions');
 
   if (!existsSync(extSrc)) return;
-  mkdirSync(extDst, { recursive: true });
 
-  // Sync extension directories
-  for (const entry of readdirSync(extSrc, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      const srcDir = join(extSrc, entry.name);
-      const dstDir = join(extDst, entry.name);
-      mkdirSync(dstDir, { recursive: true });
-
-      for (const file of readdirSync(srcDir)) {
-        copyFileSync(join(srcDir, file), join(dstDir, file));
+  // Recursive copy
+  function copyDirRecursive(src: string, dst: string): void {
+    mkdirSync(dst, { recursive: true });
+    for (const entry of readdirSync(src, { withFileTypes: true })) {
+      const srcPath = join(src, entry.name);
+      const dstPath = join(dst, entry.name);
+      if (entry.isDirectory()) {
+        copyDirRecursive(srcPath, dstPath);
+      } else {
+        copyFileSync(srcPath, dstPath);
       }
-    } else if (entry.isFile()) {
-      copyFileSync(join(extSrc, entry.name), join(extDst, entry.name));
     }
   }
+
+  copyDirRecursive(extSrc, extDst);
 }
 
 // ---------------------------------------------------------------------------
