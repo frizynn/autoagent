@@ -32,6 +32,7 @@ from autoagent.meta_agent import MetaAgent, ProposalResult
 from autoagent.pipeline import PipelineRunner
 from autoagent.primitives import LLMProtocol, MetricsCollector, PrimitivesContext
 from autoagent.state import ProjectState, StateManager
+from autoagent.strategy import analyze_strategy, classify_mutation
 from autoagent.summarizer import ArchiveSummarizer
 from autoagent.types import MetricsSnapshot
 
@@ -268,12 +269,26 @@ class OptimizationLoop:
                         decision="discard", limit=3,
                     )
 
+                # Gather strategy signals from stagnation detector
+                strategy_signals = ""
+                try:
+                    recent_entries = self.archive.recent(10)
+                    strategy_signals = analyze_strategy(recent_entries)
+                    if strategy_signals:
+                        logger.info("Strategy signal: %s", strategy_signals)
+                except Exception:
+                    logger.warning(
+                        "Strategy detector failed, proceeding without signals",
+                        exc_info=True,
+                    )
+
                 # Propose a mutation
                 proposal = self.meta_agent.propose(
                     current_source=current_best_source,
                     kept_entries=kept_entries,
                     discarded_entries=discarded_entries,
                     archive_summary=archive_summary,
+                    strategy_signals=strategy_signals,
                 )
                 total_cost += proposal.cost_usd
 
@@ -288,6 +303,7 @@ class OptimizationLoop:
                         parent_iteration_id=(
                             int(best_iteration_id) if best_iteration_id else None
                         ),
+                        mutation_type="parametric",
                     )
                     state = replace(
                         state,
@@ -323,12 +339,27 @@ class OptimizationLoop:
                 else:
                     decision = "discard"
 
-                # Archive the iteration
+                # Classify mutation type from diff
                 parent_id = (
                     int(state.best_iteration_id)
                     if state.best_iteration_id
                     else None
                 )
+                pipeline_diff_text = ""
+                if parent_id is not None:
+                    parent_pad = max(3, len(str(parent_id)))
+                    parent_pipeline = self.archive.archive_dir / f"{str(parent_id).zfill(parent_pad)}-pipeline.py"
+                    if parent_pipeline.exists():
+                        import difflib as _difflib
+                        _old = parent_pipeline.read_text(encoding="utf-8")
+                        pipeline_diff_text = "".join(_difflib.unified_diff(
+                            _old.splitlines(keepends=True),
+                            proposal.proposed_source.splitlines(keepends=True),
+                        ))
+                mt = classify_mutation(pipeline_diff_text)
+                logger.debug("Mutation type: %s", mt)
+
+                # Archive the iteration
                 entry = self.archive.add(
                     pipeline_source=proposal.proposed_source,
                     evaluation_result=eval_result,
@@ -338,6 +369,7 @@ class OptimizationLoop:
                     baseline_source=(
                         current_best_source if parent_id is None else None
                     ),
+                    mutation_type=mt,
                 )
 
                 if decision == "keep":

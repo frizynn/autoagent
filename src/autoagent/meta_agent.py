@@ -228,6 +228,7 @@ class MetaAgent:
         discarded_entries: list[ArchiveEntry],
         benchmark_description: str = "",
         archive_summary: str = "",
+        strategy_signals: str = "",
     ) -> str:
         """Build a structured prompt for the LLM.
 
@@ -296,6 +297,10 @@ class MetaAgent:
                     + "\n".join(discard_lines)
                 )
 
+        # Strategy guidance — placed after history sections
+        if strategy_signals:
+            sections.append(f"## Strategy Guidance\n{strategy_signals}")
+
         return "\n\n".join(sections)
 
     # -- source extraction -------------------------------------------------
@@ -357,6 +362,7 @@ class MetaAgent:
         discarded_entries: list[ArchiveEntry] | None = None,
         benchmark_description: str = "",
         archive_summary: str = "",
+        strategy_signals: str = "",
     ) -> ProposalResult:
         """Propose a pipeline mutation.
 
@@ -379,6 +385,7 @@ class MetaAgent:
         prompt = self._build_prompt(
             current_source, kept, discarded, benchmark_description,
             archive_summary=archive_summary,
+            strategy_signals=strategy_signals,
         )
 
         # Call LLM

@@ -96,6 +96,7 @@ class ArchiveEntry:
     rationale: str
     decision: str  # "keep" or "discard"
     parent_iteration_id: int | None = None
+    mutation_type: str | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Serialize to a plain dict suitable for JSON encoding."""
@@ -117,6 +118,7 @@ class ArchiveEntry:
             rationale=d["rationale"],
             decision=d["decision"],
             parent_iteration_id=d.get("parent_iteration_id"),
+            mutation_type=d.get("mutation_type"),
         )
 
 
@@ -167,6 +169,7 @@ class Archive:
         decision: str,
         parent_iteration_id: int | None = None,
         baseline_source: str | None = None,
+        mutation_type: str | None = None,
     ) -> ArchiveEntry:
         """Archive one iteration atomically.
 
@@ -233,6 +236,7 @@ class Archive:
             rationale=rationale,
             decision=decision,
             parent_iteration_id=parent_iteration_id,
+            mutation_type=mutation_type,
         )
 
         # Write entry JSON atomically

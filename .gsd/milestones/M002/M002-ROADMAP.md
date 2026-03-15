@@ -56,7 +56,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Structural Search & Component Vocabulary** `risk:high` `depends:[]`
   > After this: the meta-agent prompt includes a component vocabulary (available primitives + architectural patterns like RAG, CAG, debate, reflexion, ensemble, reranking) and produces topology-changing mutations visible in archive diffs — not just parameter tweaks.
 
-- [ ] **S03: Strategy Selection & Parameter Optimization** `risk:medium` `depends:[S01,S02]`
+- [x] **S03: Strategy Selection & Parameter Optimization** `risk:medium` `depends:[S01,S02]`
   > After this: the meta-agent reads archive statistics (plateau length, score variance, structural diversity) and autonomously balances between structural exploration and parameter tuning. Strategy signals visible in archive rationale. Parameter-only mutations (prompt wording, temperature, chunk sizes) are a distinct mutation mode.
 
 - [ ] **S04: Cold-Start Pipeline Generation** `risk:medium` `depends:[S02]`

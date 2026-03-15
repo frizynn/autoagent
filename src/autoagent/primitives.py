@@ -158,9 +158,11 @@ class MockLLM:
         self.latency_ms = latency_ms
         self.collector = collector
         self.cost_config = cost_config
+        self.last_prompt: str = ""
 
     def complete(self, prompt: str, **kwargs: Any) -> str:
         """Return the pre-configured response and record metrics."""
+        self.last_prompt = prompt
         cost = calculate_cost(
             self.tokens_in, self.tokens_out, self.model, self.cost_config
         )

@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 complete. M002 S01 (Archive Compression & Summarization) and S02 (Structural Search & Component Vocabulary) complete — meta-agent prompt now includes component vocabulary with 6 architectural patterns (RAG, CAG, Debate, Reflexion, Ensemble, Reranking), primitive signatures, anti-pattern guidance, and structural mutation system instructions. 208 tests passing. 11 requirements validated (R001-R006, R008, R016, R017, R019, R022).
+M001 complete. M002 S01 (Archive Compression), S02 (Structural Search & Component Vocabulary), and S03 (Strategy Selection & Parameter Optimization) complete — meta-agent prompt now includes component vocabulary, archive summaries past threshold, and graduated strategy signals based on stagnation detection. Sliding-window analysis of plateau length, score variance, and structural diversity drives exploration/exploitation balance. Mutation type tracking on every archive entry. 250 tests passing. 11 requirements validated (R001-R006, R008, R016, R017, R019, R022). R012, R013, R024 advanced.
 
-Next: M002 S03 (Strategy Selection) and S04 (Cold-Start) are both unblocked.
+Next: M002 S04 (Cold-Start Pipeline Generation) — last slice in M002.
 
 ## Architecture / Key Patterns
 

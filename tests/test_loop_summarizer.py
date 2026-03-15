@@ -62,12 +62,14 @@ class RecordingMetaAgent:
         discarded_entries: list[ArchiveEntry] | None = None,
         benchmark_description: str = "",
         archive_summary: str = "",
+        strategy_signals: str = "",
     ) -> ProposalResult:
         self.calls.append({
             "current_source": current_source,
             "kept_entries": kept_entries or [],
             "discarded_entries": discarded_entries or [],
             "archive_summary": archive_summary,
+            "strategy_signals": strategy_signals,
         })
         idx = self._call_count % len(self._proposals)
         self._call_count += 1

@@ -424,3 +424,70 @@ class TestComponentVocabulary:
         # No raw provider imports in skeletons
         assert "from openai" not in vocab
         assert "from anthropic" not in vocab
+
+
+# ---------------------------------------------------------------------------
+# Strategy signals in prompt
+# ---------------------------------------------------------------------------
+
+
+class TestStrategySignals:
+    """Tests for strategy_signals parameter in _build_prompt() and propose()."""
+
+    def test_strategy_signals_in_prompt(self):
+        """## Strategy Guidance section appears when strategy_signals is non-empty."""
+        collector = MetricsCollector()
+        llm = MockLLM(collector=collector)
+        agent = MetaAgent(llm, goal="test")
+        prompt = agent._build_prompt(
+            "source", [], [],
+            strategy_signals="Consider structural changes — plateau detected.",
+        )
+        assert "## Strategy Guidance" in prompt
+        assert "Consider structural changes" in prompt
+        assert "plateau detected" in prompt
+
+    def test_strategy_signals_empty_omitted(self):
+        """## Strategy Guidance section is absent when strategy_signals is empty."""
+        collector = MetricsCollector()
+        llm = MockLLM(collector=collector)
+        agent = MetaAgent(llm, goal="test")
+        prompt = agent._build_prompt("source", [], [], strategy_signals="")
+        assert "## Strategy Guidance" not in prompt
+        assert "Strategy Guidance" not in prompt
+
+    def test_propose_forwards_strategy_signals(self):
+        """propose() passes strategy_signals through to _build_prompt()."""
+        collector = MetricsCollector()
+        llm = MockLLM(
+            response=VALID_PIPELINE_FENCED_WITH_RATIONALE,
+            collector=collector,
+        )
+        agent = MetaAgent(llm, goal="test")
+
+        # Capture the prompt that was sent to the LLM
+        result = agent.propose(
+            current_source=VALID_PIPELINE,
+            strategy_signals="Try parameter tuning within current topology.",
+        )
+        assert result.success is True
+        # The MockLLM received a prompt — check it contained strategy signals
+        # MockLLM stores the last prompt it received
+        last_prompt = llm.last_prompt
+        assert "## Strategy Guidance" in last_prompt
+        assert "Try parameter tuning" in last_prompt
+
+    def test_strategy_signals_after_history_sections(self):
+        """Strategy Guidance section appears after archive/history sections."""
+        collector = MetricsCollector()
+        llm = MockLLM(collector=collector)
+        agent = MetaAgent(llm, goal="test")
+        kept = [_make_entry(1, "keep", 0.9, "good")]
+        prompt = agent._build_prompt(
+            "source", kept, [],
+            strategy_signals="Focus on structural changes.",
+        )
+        # Strategy Guidance should come after Top Kept Iterations
+        kept_pos = prompt.index("## Top Kept Iterations")
+        strategy_pos = prompt.index("## Strategy Guidance")
+        assert strategy_pos > kept_pos
