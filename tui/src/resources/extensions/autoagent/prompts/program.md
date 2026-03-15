@@ -19,7 +19,7 @@ Before the first experiment:
    commit	score	status	description
    ```
 
-4. **Run the baseline**: Run `python prepare.py eval` on the current `pipeline.py` without modifications. Record the result. This is your starting point.
+4. **Run the baseline**: Run `python3 prepare.py eval` on the current `pipeline.py` without modifications. Record the result. This is your starting point.
 
 ## The Experiment Loop
 
@@ -31,8 +31,8 @@ LOOP FOREVER:
 
 3. **Commit** — `git add pipeline.py && git commit -m "<short description of the change>"`
 
-4. **Evaluate** — Run: `python prepare.py eval`
-   Redirect output if needed: `python prepare.py eval > eval.log 2>&1`
+4. **Evaluate** — Run: `python3 prepare.py eval`
+   Redirect output if needed: `python3 prepare.py eval > eval.log 2>&1`
    Then read the score: `grep "^score:" eval.log`
 
 5. **Handle the result:**
