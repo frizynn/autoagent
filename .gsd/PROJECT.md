@@ -10,7 +10,7 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 and M002 complete. M003 complete — all four safety gates implemented and proven: S01 (TLA+ Verification Gate), S02 (Pareto Evaluation with Simplicity Criterion), S03 (Data Leakage Detection), S04 (Sandbox Isolation & Final Assembly). The optimization loop now has four safety gates: TLA+ verification rejects proposals that fail model checking, Pareto dominance across (primary_score, latency, cost, complexity) rejects reward-hacking, leakage detection blocks train/test contamination before evaluation, and sandbox isolation executes pipeline code inside Docker containers with graceful fallback. All four gates produce archive-visible results. 381 tests passing. 17 requirements validated (R001-R006, R008-R010, R014-R017, R019-R022).
+M001, M002, and M003 complete. The optimization loop has full search intelligence (structural mutations, parameter tuning, archive compression, cold-start generation) and four safety gates: TLA+ verification rejects proposals that fail model checking, Pareto dominance across (primary_score, latency, cost, complexity) rejects reward-hacking, leakage detection blocks train/test contamination before evaluation, and sandbox isolation executes pipeline code inside Docker containers with graceful fallback. All four gates produce archive-visible results. 381 tests passing across 22 test files. 17 requirements validated (R001-R006, R008-R010, R014-R017, R019-R022).
 
 Next: M004 (Interview & Polish).
 
@@ -26,6 +26,8 @@ Next: M004 (Interview & Polish).
 - **Never-raise runner** — PipelineRunner returns structured PipelineResult on all paths
 - **Budget auto-pause** — hard ceiling with pre-iteration cost estimation
 - **Archive-based recovery** — resume reconstructs best_score and restores pipeline.py from archive
+- **Safety gate sequence** — TLA+ → leakage → evaluation (with sandbox) → Pareto keep/discard
+- **Graceful degradation** — safety gates skip with warnings when Java/Docker unavailable
 
 ## Capability Contract
 
