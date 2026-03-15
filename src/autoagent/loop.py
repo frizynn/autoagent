@@ -37,6 +37,7 @@ from autoagent.strategy import analyze_strategy, classify_mutation
 from autoagent.summarizer import ArchiveSummarizer
 from autoagent.types import MetricsSnapshot
 from autoagent.verification import TLAVerifier, VerificationResult
+from autoagent.leakage import LeakageChecker
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,7 @@ class OptimizationLoop:
         summary_interval: int = 10,
         summarizer_llm: LLMProtocol | None = None,
         tla_verifier: TLAVerifier | None = None,
+        leakage_checker: LeakageChecker | None = None,
     ) -> None:
         self.state_manager = state_manager
         self.archive = archive
@@ -115,6 +117,7 @@ class OptimizationLoop:
         self.summary_interval = summary_interval
         self.summarizer_llm = summarizer_llm
         self.tla_verifier = tla_verifier
+        self.leakage_checker = leakage_checker
         # Cached summary state
         self._cached_summary: str = ""
         self._summary_archive_len: int = 0
@@ -394,6 +397,63 @@ class OptimizationLoop:
                             iteration, vr.skip_reason,
                         )
 
+                # --- Leakage detection gate ---
+                leakage_check: dict[str, Any] | None = None
+                if self.leakage_checker is not None:
+                    lr = self.leakage_checker.check(
+                        self.benchmark, proposal.proposed_source,
+                    )
+                    total_cost += lr.cost_usd
+                    leakage_check = {
+                        "blocked": lr.blocked,
+                        "exact_matches": lr.exact_matches,
+                        "fuzzy_warnings": list(lr.fuzzy_warnings),
+                        "cost_usd": lr.cost_usd,
+                    }
+
+                    if lr.blocked:
+                        rationale = (
+                            f"leakage_blocked: {lr.exact_matches} exact matches"
+                        )
+                        logger.info(
+                            "Iteration %d: leakage detected, discarding: %s",
+                            iteration,
+                            rationale,
+                        )
+                        eval_result = _make_failed_evaluation()
+                        parent_id = (
+                            int(best_iteration_id) if best_iteration_id else None
+                        )
+                        self.archive.add(
+                            pipeline_source=proposal.proposed_source,
+                            evaluation_result=eval_result,
+                            rationale=rationale,
+                            decision="discard",
+                            parent_iteration_id=parent_id,
+                            mutation_type="parametric",
+                            tla_verification=tla_verification,
+                            leakage_check=leakage_check,
+                        )
+                        # Restore previous best on disk
+                        pipeline_path.write_text(
+                            current_best_source, encoding="utf-8"
+                        )
+                        state = replace(
+                            state,
+                            current_iteration=iteration,
+                            total_cost_usd=total_cost,
+                            updated_at=_now_iso(),
+                        )
+                        sm.write_state(state)
+                        continue
+
+                    if lr.fuzzy_warnings:
+                        for fw in lr.fuzzy_warnings:
+                            logger.warning(
+                                "Iteration %d: leakage warning: %s",
+                                iteration, fw,
+                            )
+
                 # Evaluate
                 eval_result = self.evaluator.evaluate(
                     pipeline_path=pipeline_path,
@@ -462,6 +522,7 @@ class OptimizationLoop:
                     ),
                     mutation_type=mt,
                     tla_verification=tla_verification,
+                    leakage_check=leakage_check,
                     pareto_evaluation={
                         "decision": pareto_result.decision,
                         "rationale": pareto_result.rationale,

@@ -19,13 +19,13 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ### R009 — Data Leakage Guardrail
 - Class: quality-attribute
-- Status: active
+- Status: validated
 - Description: Every evaluation step checks for train/test contamination before running benchmarks — permanent guardrail, not one-time check
 - Why it matters: User's #1 concern alongside reward hacking — leaky benchmarks make all improvements fake
 - Source: user
 - Primary owning slice: M003/S03
 - Supporting slices: M001/S03
-- Validation: unmapped
+- Validation: validated — LeakageChecker performs two-tier detection: AST-based exact-match blocking (serialized benchmark examples vs pipeline string literals) and word-level n-gram fuzzy warnings (Jaccard > 0.3). Short examples (<10 chars) skipped. Gate wired into loop after TLA+, before evaluation. Blocked iterations discarded with rationale. Results persisted in ArchiveEntry.leakage_check. 26 tests (21 unit + 5 integration). Contract-level proof in S03.
 - Notes: "ALWAYS CHECK IN EVERY STEP BEFORE RUNNING BENCHMARKS" — user's exact words. Could be via prompting or mechanical checks.
 
 ### R011 — Structural Search
@@ -311,7 +311,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R006 | core-capability | validated | M001/S02 | M004/S05 | validated (S02+S05) |
 | R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |
 | R008 | core-capability | validated | M001/S03 | M004/S02 | validated (S03+S05) |
-| R009 | quality-attribute | active | M003/S03 | M001/S03 | unmapped |
+| R009 | quality-attribute | validated | M003/S03 | M001/S03 | validated (S03) |
 | R010 | quality-attribute | validated | M003/S02 | M001/S03 | validated (S02) |
 | R011 | core-capability | active | M002/S02 | M002/S04 | unmapped |
 | R012 | core-capability | active | M002/S03 | M002/S04 | unmapped |
@@ -332,7 +332,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 9
+- Active requirements: 8
 - Mapped to slices: 24
-- Validated: 15
+- Validated: 16
 - Unmapped active requirements: 0

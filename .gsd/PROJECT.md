@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 and M002 complete. M003 in progress — S01 (TLA+ Verification Gate) and S02 (Pareto Evaluation) complete. The optimization loop now uses Pareto dominance across (primary_score, latency, cost, complexity) instead of single-score comparison, with simplicity tiebreaker for incomparable pipelines. 331 tests passing. 15 requirements validated (R001-R006, R008, R010, R014, R015, R016, R017, R019, R020, R022).
+M001 and M002 complete. M003 in progress — S01 (TLA+ Verification Gate), S02 (Pareto Evaluation), and S03 (Data Leakage Detection) complete. The optimization loop now has three safety gates: TLA+ verification rejects proposals that fail model checking, Pareto dominance across (primary_score, latency, cost, complexity) rejects reward-hacking, and leakage detection blocks train/test contamination before evaluation. 357 tests passing. 16 requirements validated (R001-R006, R008-R010, R014-R017, R019, R020, R022).
 
-Next: M003/S03 (Data Leakage Detection).
+Next: M003/S04 (Sandbox Isolation & Final Assembly).
 
 ## Architecture / Key Patterns
 

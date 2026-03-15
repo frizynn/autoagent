@@ -99,6 +99,7 @@ class ArchiveEntry:
     mutation_type: str | None = None
     tla_verification: dict[str, Any] | None = None
     pareto_evaluation: dict[str, Any] | None = None
+    leakage_check: dict[str, Any] | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Serialize to a plain dict suitable for JSON encoding."""
@@ -123,6 +124,7 @@ class ArchiveEntry:
             mutation_type=d.get("mutation_type"),
             tla_verification=d.get("tla_verification"),
             pareto_evaluation=d.get("pareto_evaluation"),
+            leakage_check=d.get("leakage_check"),
         )
 
 
@@ -176,6 +178,7 @@ class Archive:
         mutation_type: str | None = None,
         tla_verification: dict[str, Any] | None = None,
         pareto_evaluation: dict[str, Any] | None = None,
+        leakage_check: dict[str, Any] | None = None,
     ) -> ArchiveEntry:
         """Archive one iteration atomically.
 
@@ -245,6 +248,7 @@ class Archive:
             mutation_type=mutation_type,
             tla_verification=tla_verification,
             pareto_evaluation=pareto_evaluation,
+            leakage_check=leakage_check,
         )
 
         # Write entry JSON atomically
