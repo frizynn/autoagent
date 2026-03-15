@@ -434,17 +434,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             )
             return 1
 
-        def loop_factory(event_callback: object = None) -> object:
-            loop = _prepare_loop(
-                project_dir, sm,
-                max_iterations=max_iterations,
-                budget=budget,
-                event_callback=event_callback,
-            )
-            return loop.run()
-
         return run_tui(
-            loop_factory=loop_factory,
+            project_dir=str(project_dir),
             budget_usd=budget,
             max_iterations=max_iterations,
         )
@@ -524,25 +515,12 @@ def cmd_watch(args: argparse.Namespace) -> int:
         )
         return 1
 
-    return run_tui(watch_dir=project_dir)
+    return run_tui(project_dir=str(project_dir), watch_dir=project_dir)
 
 
 def cmd_default(args: argparse.Namespace) -> int:
-    """Default command — launch the TUI dashboard.
-
-    If a project is initialized, shows the status TUI.
-    Otherwise prints help.
-    """
+    """Default command — launch the interactive TUI."""
     project_dir = _resolve_project_dir(args)
-    sm = StateManager(project_dir)
-
-    if not sm.is_initialized():
-        print(
-            "No autoagent project found in this directory.\n"
-            "Run 'autoagent init' to create one, or 'autoagent --help' for usage.",
-            file=sys.stderr,
-        )
-        return 1
 
     try:
         from autoagent.tui import run_tui
@@ -555,14 +533,7 @@ def cmd_default(args: argparse.Namespace) -> int:
         )
         return 1
 
-    # Check if a loop is currently running (lock held by another process)
-    state = sm.read_state()
-    if state.phase == "running" and sm.lock_path.exists():
-        # Attach as watcher
-        return run_tui(watch_dir=project_dir)
-
-    # Otherwise show the status dashboard (watch mode, reads state.json)
-    return run_tui(watch_dir=project_dir)
+    return run_tui(project_dir=str(project_dir))
 
 
 def cmd_report(args: argparse.Namespace) -> int:
