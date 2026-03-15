@@ -18,6 +18,7 @@ import { Key } from "@gsd/pi-tui";
 import { SubprocessManager } from "./subprocess-manager.js";
 import { AutoagentDashboardOverlay } from "./dashboard-overlay.js";
 import { SubprocessState } from "./types.js";
+import { runInterview } from "./interview-runner.js";
 
 let overlayOpen = false;
 
@@ -76,7 +77,7 @@ async function openDashboard(ctx: ExtensionCommandContext): Promise<void> {
 export default function (pi: ExtensionAPI) {
   // ── /autoagent command ─────────────────────────────────────────────────
   pi.registerCommand("autoagent", {
-    description: "AutoAgent optimization — run, stop, or check status",
+    description: "AutoAgent — run, stop, status, or new (project interview)",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const parts = args.trim().split(/\s+/);
       const subcommand = parts[0] || "run";
@@ -141,8 +142,18 @@ export default function (pi: ExtensionAPI) {
           break;
         }
 
+        case "new": {
+          const projectDir = process.cwd();
+          ctx.ui.notify("Starting project interview...", "info");
+          const result = await runInterview(projectDir, ctx.ui);
+          if (!result.success) {
+            ctx.ui.notify(result.error ?? "Interview failed.", "warning");
+          }
+          break;
+        }
+
         default:
-          ctx.ui.notify(`Unknown subcommand: ${subcommand}. Use run, stop, or status.`, "warning");
+          ctx.ui.notify(`Unknown subcommand: ${subcommand}. Use run, stop, status, or new.`, "warning");
       }
     },
   });

@@ -51,10 +51,50 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _json_emit(event: dict) -> None:
+    """Write a single JSON line to stdout with flush."""
+    sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
 def cmd_new(args: argparse.Namespace) -> int:
     """Run the interactive interview and write config + context to disk."""
     project_dir = _resolve_project_dir(args)
     sm = StateManager(project_dir)
+    json_mode = getattr(args, "json", False)
+
+    # In JSON mode: redirect builtins.print to stderr (same pattern as cmd_run --jsonl)
+    original_print = print  # noqa: T202
+    if json_mode:
+        import builtins
+
+        def _stderr_print(*a: object, **kw: object) -> None:
+            kw.setdefault("file", sys.stderr)  # type: ignore[arg-type]
+            original_print(*a, **kw)
+
+        builtins.print = _stderr_print  # type: ignore[assignment]
+
+    try:
+        return _cmd_new_inner(args, sm, project_dir, json_mode)
+    except Exception as exc:
+        if json_mode:
+            _json_emit({"type": "error", "message": str(exc)})
+        else:
+            original_print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        if json_mode:
+            import builtins
+            builtins.print = original_print  # type: ignore[assignment]
+
+
+def _cmd_new_inner(
+    args: argparse.Namespace,
+    sm: StateManager,
+    project_dir: Path,
+    json_mode: bool,
+) -> int:
+    """Core logic for cmd_new, callable under JSON or interactive mode."""
 
     # Auto-initialize if needed
     if not sm.is_initialized():
@@ -64,8 +104,8 @@ def cmd_new(args: argparse.Namespace) -> int:
         except OSError as exc:
             print(f"Error: could not initialize project: {exc}", file=sys.stderr)
             return 1
-    else:
-        # Warn if config already has a goal
+    elif not json_mode:
+        # Warn if config already has a goal (skip in JSON mode — TUI side handles this)
         try:
             existing_config = sm.read_config()
         except (OSError, ValueError, KeyError):
@@ -89,11 +129,18 @@ def cmd_new(args: argparse.Namespace) -> int:
     # Create orchestrator — MockLLM placeholder until real provider wiring
     collector = MetricsCollector()
     llm = MockLLM(collector=collector)
-    orchestrator = InterviewOrchestrator(llm=llm)
+
+    if json_mode:
+        orchestrator = _build_json_orchestrator(llm)
+    else:
+        orchestrator = InterviewOrchestrator(llm=llm)
 
     try:
         result = orchestrator.run()
     except KeyboardInterrupt:
+        if json_mode:
+            # Clean exit — abort was received via protocol
+            return 1
         # Clean exit with partial state info
         answered = list(orchestrator.state.keys())
         print(
@@ -102,6 +149,19 @@ def cmd_new(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    except EOFError:
+        if json_mode:
+            _json_emit({"type": "error", "message": "stdin closed unexpectedly"})
+        return 1
+
+    # In JSON mode, emit completion event and return
+    if json_mode:
+        from dataclasses import asdict
+        _json_emit({
+            "type": "complete",
+            "config": asdict(result.config),
+            "context": result.context,
+        })
 
     # Auto-generate benchmark if no dataset_path provided and goal is set
     config = result.config
@@ -136,16 +196,97 @@ def cmd_new(args: argparse.Namespace) -> int:
     context_path.write_text(result.context, encoding="utf-8")
 
     # Print summary
-    goal = config.goal or "(not set)"
-    metric_count = len(config.metric_priorities)
-    constraint_count = len(config.constraints)
-    print(f"\nProject configured:")
-    print(f"  Goal:        {goal}")
-    print(f"  Metrics:     {metric_count}")
-    print(f"  Constraints: {constraint_count}")
-    print(f"  Config:      {sm.config_path}")
-    print(f"  Context:     {context_path}")
+    if not json_mode:
+        goal = config.goal or "(not set)"
+        metric_count = len(config.metric_priorities)
+        constraint_count = len(config.constraints)
+        print(f"\nProject configured:")
+        print(f"  Goal:        {goal}")
+        print(f"  Metrics:     {metric_count}")
+        print(f"  Constraints: {constraint_count}")
+        print(f"  Config:      {sm.config_path}")
+        print(f"  Context:     {context_path}")
     return 0
+
+
+def _build_json_orchestrator(llm: object) -> InterviewOrchestrator:
+    """Build an InterviewOrchestrator wired for JSON protocol I/O.
+
+    Protocol: strict request-response JSON lines on stdout/stdin.
+    - prompt/confirm → Python asks, waits for answer
+    - status → informational, no response expected
+    - complete/error → terminal events
+    """
+    orchestrator = InterviewOrchestrator.__new__(InterviewOrchestrator)
+    # We need the orchestrator instance to read .phase, so we build the
+    # closures first then wire them in via __init__ manually.
+
+    # Track whether we're in confirmation phase to distinguish confirm vs status
+    _confirmation_lines: list[str] = []
+    _in_confirmation_summary = False
+
+    def json_input_fn(prompt: str = "") -> str:
+        """Emit a prompt event, read one JSON answer from stdin."""
+        nonlocal _in_confirmation_summary
+
+        # If we accumulated confirmation summary lines, emit them as a confirm
+        # message before asking for the confirmation answer.
+        if _in_confirmation_summary and _confirmation_lines:
+            summary = "\n".join(_confirmation_lines)
+            _json_emit({"type": "confirm", "summary": summary})
+            _confirmation_lines.clear()
+            _in_confirmation_summary = False
+            # Now read the confirmation answer
+        else:
+            # Regular prompt
+            phase = orchestrator.phase
+            # Find the question text: the last print_fn call was the question
+            _json_emit({"type": "prompt", "phase": phase, "question": _last_question[0]})
+
+        line = sys.stdin.readline()
+        if not line:
+            raise EOFError("stdin closed")
+        data = json.loads(line)
+        if data.get("type") == "abort":
+            raise KeyboardInterrupt("abort received")
+        return data.get("text", "")
+
+    _last_question: list[str] = [""]
+
+    def json_print_fn(text: str = "") -> None:
+        """Route print_fn calls to JSON status or confirm messages."""
+        nonlocal _in_confirmation_summary
+
+        phase = orchestrator.phase
+
+        if phase == "confirmation":
+            # Accumulate summary lines until input_fn is called
+            text_stripped = text.strip()
+            if text_stripped == "--- Summary ---":
+                _in_confirmation_summary = True
+                return
+            if _in_confirmation_summary:
+                if text_stripped.startswith("Does this look correct?"):
+                    # This is the confirmation question — will be asked via input_fn
+                    _last_question[0] = text_stripped
+                    return
+                if text_stripped:
+                    _confirmation_lines.append(text_stripped)
+                return
+
+        # Track the last non-header text as the question for prompt events
+        text_stripped = text.strip()
+        if text_stripped and not text_stripped.startswith("---") and not text_stripped.startswith("==="):
+            _last_question[0] = text_stripped
+            return  # Don't emit status for questions — they go with the prompt
+
+        # Headers and banners → status
+        if text_stripped:
+            _json_emit({"type": "status", "message": text_stripped})
+
+    # Initialize the orchestrator properly
+    orchestrator.__init__(llm=llm, input_fn=json_input_fn, print_fn=json_print_fn)  # type: ignore[misc]
+    return orchestrator
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -378,7 +519,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("init", help="Initialize a new autoagent project")
     sub.add_parser("status", help="Show current project status")
-    sub.add_parser("new", help="Run interactive interview to configure a new project")
+    new_parser = sub.add_parser("new", help="Run interactive interview to configure a new project")
+    new_parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Drive interview via JSON protocol on stdin/stdout (for IDE integration)",
+    )
 
     run_parser = sub.add_parser("run", help="Run the optimization loop")
     run_parser.add_argument(
