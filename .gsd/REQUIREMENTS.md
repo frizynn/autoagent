@@ -14,8 +14,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S05
 - Supporting slices: M001/S06
-- Validation: unmapped
-- Notes: Must be truly autonomous — "NEVER STOP" per autoresearch pattern
+- Validation: validated — Loop runs ≥3 autonomous iterations with keep/discard decisions, state persistence, and archive entries (S05, 10 integration tests). Budget/interrupt handling in S06.
 
 ### R002 — Single-File Mutation Constraint
 - Class: constraint
@@ -25,8 +24,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: M001/S05
-- Validation: unmapped
-- Notes: Mirrors autoresearch's `train.py` constraint
+- Validation: validated — MetaAgent outputs complete pipeline.py; loop writes/restores only pipeline.py (S01 + S05).
 
 ### R003 — Instrumented Primitives
 - Class: core-capability
@@ -36,7 +34,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: M001/S03
-- Validation: partial — primitives implemented and tested in S01; metrics captured and aggregated per-example in evaluation (S03). Full validation when used in live optimization loop (S05).
+- Validation: validated — Primitives integrated into optimization loop via Evaluator; metrics captured per-iteration in S05.
 - Notes: Provider-agnostic — must work with OpenAI, Anthropic, local models, any retrieval backend
 
 ### R004 — Monotonic Archive
@@ -47,7 +45,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S04
 - Supporting slices: M002/S01
-- Validation: partial — Archive module implemented in S04 with ArchiveEntry (metrics, diff, rationale, timestamp), atomic writes, query/filter/sort, 32 tests passing. Full validation when wired into live optimization loop (S05).
+- Validation: validated — Archive wired into optimization loop; every iteration (success or failure) recorded with metrics and rationale (S04 + S05).
 - Notes: Must include metrics vector, pipeline diff, meta-agent rationale, timestamp
 
 ### R005 — Crash-Recoverable Disk State
@@ -69,7 +67,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S02
 - Supporting slices: M004/S05
-- Validation: partial — CLI commands work via argparse (D017: PI is Node.js, no Python SDK). init/status/run implemented. Full meta-agent integration in S05.
+- Validation: validated — cmd_run wired to OptimizationLoop in S05; init/status/run all functional via argparse.
 - Notes: Meta-agent runs on user's coding agent subscription (Claude Code Max, Codex, etc.). Reinterpreted as standard Python CLI per D017.
 
 ### R007 — GSD-2 Depth Interview Phase
@@ -91,7 +89,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: M004/S02
-- Validation: partial — Benchmark loader, Evaluator, and EvaluationResult implemented in S03 with 29 tests. Full validation when integrated into optimization loop (S05).
+- Validation: validated — Evaluator integrated into optimization loop; every iteration scored against benchmark (S03 + S05).
 - Notes: If user provides no benchmark, system should create one (see R023)
 
 ### R009 — Data Leakage Guardrail
@@ -245,7 +243,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: research (autoresearch)
 - Primary owning slice: M001/S03
 - Supporting slices: none
-- Validation: partial — per-example timeout via ThreadPoolExecutor implemented in S03, timeout → score 0.0 with error="timeout". Full validation when wired into optimization loop (S05).
+- Validation: validated — Per-example timeout implemented in S03, wired into optimization loop in S05. Timeout → score 0.0, discard, continue.
 - Notes: Timeout → treat as failure, discard, move on
 
 ### R023 — Automatic Benchmark Generation
@@ -306,14 +304,14 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | core-capability | active | M001/S05 | M001/S06 | unmapped |
-| R002 | constraint | active | M001/S01 | M001/S05 | unmapped |
-| R003 | core-capability | active | M001/S01 | M001/S03 | partial (S01, S03) |
-| R004 | core-capability | active | M001/S04 | M002/S01 | partial (S04) |
-| R005 | continuity | active | M001/S06 | M001/S02 | unmapped |
-| R006 | core-capability | active | M001/S02 | M004/S05 | unmapped |
+| R001 | core-capability | validated | M001/S05 | M001/S06 | validated (S05) |
+| R002 | constraint | validated | M001/S01 | M001/S05 | validated (S01+S05) |
+| R003 | core-capability | validated | M001/S01 | M001/S03 | validated (S01+S03+S05) |
+| R004 | core-capability | validated | M001/S04 | M002/S01 | validated (S04+S05) |
+| R005 | continuity | active | M001/S06 | M001/S02 | partial (S02) |
+| R006 | core-capability | validated | M001/S02 | M004/S05 | validated (S02+S05) |
 | R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |
-| R008 | core-capability | active | M001/S03 | M004/S02 | partial (S03) |
+| R008 | core-capability | validated | M001/S03 | M004/S02 | validated (S03+S05) |
 | R009 | quality-attribute | active | M003/S04 | M001/S03 | unmapped |
 | R010 | quality-attribute | active | M003/S05 | M001/S03 | unmapped |
 | R011 | core-capability | active | M002/S02 | M002/S04 | unmapped |
@@ -327,7 +325,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R019 | primary-user-loop | active | M001/S06 | M004/S04 | unmapped |
 | R020 | quality-attribute | active | M003/S05 | none | unmapped |
 | R021 | compliance/security | active | M003/S06 | none | unmapped |
-| R022 | operability | active | M001/S03 | none | partial (S03) |
+| R022 | operability | validated | M001/S03 | none | validated (S03+S05) |
 | R023 | core-capability | active | M004/S02 | M003/S04 | unmapped |
 | R024 | core-capability | active | M002/S04 | M002/S01 | unmapped |
 | R030 | anti-feature | out-of-scope | none | none | n/a |
@@ -335,7 +333,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 24
+- Active requirements: 17
 - Mapped to slices: 24
-- Validated: 0
+- Validated: 7
 - Unmapped active requirements: 0

@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-S01 (Pipeline Execution Engine), S02 (CLI Scaffold & Disk State), S03 (Evaluation & Benchmark), and S04 (Monotonic Archive) complete. The foundational type contracts, instrumented primitives, metrics collection, dynamic pipeline execution, disk state management, CLI commands, benchmark loading, evaluation with per-example timeout, and monotonic archive with query/filter/sort are all implemented and tested. 137 total tests passing.
+S01–S05 complete. The full autonomous optimization loop is implemented: MetaAgent reads archive history, proposes pipeline mutations via LLM, validates extracted source (compile + run() check), and OptimizationLoop orchestrates propose→evaluate→keep/discard with state persistence and archive entries. 173 tests passing across all modules.
 
-Next: S05 (The Optimization Loop) — all dependencies met (S01+S02+S03+S04). This is the high-risk slice that wires everything together into the autonomous propose→evaluate→keep/discard loop.
+Next: S06 (Budget, Recovery & Fire-and-Forget) — budget ceiling with auto-pause, crash recovery (kill/restart/resume), and fire-and-forget operation.
 
 ## Architecture / Key Patterns
 

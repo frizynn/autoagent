@@ -79,16 +79,23 @@ class TestStatus:
 
 
 class TestRun:
-    def test_run_after_init(self, tmp_path: Path) -> None:
+    def test_run_no_benchmark_configured(self, tmp_path: Path) -> None:
+        """Run fails gracefully when no benchmark is configured."""
         run_cli("--project-dir", str(tmp_path), "init")
         result = run_cli("--project-dir", str(tmp_path), "run")
-        assert result.returncode == 0
-        assert "not yet implemented" in result.stdout
+        assert result.returncode == 1
+        assert "no benchmark dataset_path configured" in result.stderr
 
     def test_run_uninitialized(self, tmp_path: Path) -> None:
         result = run_cli("--project-dir", str(tmp_path), "run")
         assert result.returncode == 1
         assert "no autoagent project found" in result.stderr
+
+    def test_run_max_iterations_help(self) -> None:
+        """--max-iterations appears in run help."""
+        result = run_cli("run", "--help")
+        assert result.returncode == 0
+        assert "--max-iterations" in result.stdout
 
 
 # ---------------------------------------------------------------------------

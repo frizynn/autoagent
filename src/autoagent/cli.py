@@ -11,6 +11,12 @@ import argparse
 import sys
 from pathlib import Path
 
+from autoagent.archive import Archive
+from autoagent.benchmark import Benchmark
+from autoagent.evaluation import Evaluator
+from autoagent.loop import OptimizationLoop
+from autoagent.meta_agent import MetaAgent
+from autoagent.primitives import MetricsCollector, MockLLM, PrimitivesContext, MockRetriever
 from autoagent.state import LockError, StateManager
 
 
@@ -74,7 +80,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    """Run the optimization loop (stub — wired in S05)."""
+    """Run the optimization loop."""
     project_dir = _resolve_project_dir(args)
     sm = StateManager(project_dir)
 
@@ -85,7 +91,73 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         return 1
 
-    print("Optimization loop not yet implemented — will be wired in S05.")
+    # Read config
+    config = sm.read_config()
+    goal = config.goal or "Optimize the pipeline."
+
+    # Load benchmark
+    benchmark_cfg = config.benchmark
+    dataset_path = benchmark_cfg.get("dataset_path", "")
+    scoring_function = benchmark_cfg.get("scoring_function", "exact_match")
+
+    if not dataset_path:
+        print("Error: no benchmark dataset_path configured.", file=sys.stderr)
+        return 1
+
+    # Resolve dataset_path relative to project dir
+    resolved_dataset = Path(dataset_path)
+    if not resolved_dataset.is_absolute():
+        resolved_dataset = project_dir / resolved_dataset
+
+    try:
+        benchmark = Benchmark.from_file(resolved_dataset, scoring_function)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Error: could not load benchmark: {exc}", file=sys.stderr)
+        return 1
+
+    # Set up components
+    archive = Archive(sm.archive_dir)
+    evaluator = Evaluator()
+
+    # LLM for the meta-agent — MockLLM for now; real provider plugged in later
+    collector = MetricsCollector()
+    llm = MockLLM(collector=collector)
+    meta_agent = MetaAgent(llm=llm, goal=goal)
+
+    def primitives_factory() -> PrimitivesContext:
+        c = MetricsCollector()
+        return PrimitivesContext(
+            llm=MockLLM(collector=c),
+            retriever=MockRetriever(collector=c),
+            collector=c,
+        )
+
+    max_iterations = getattr(args, "max_iterations", None)
+
+    loop = OptimizationLoop(
+        state_manager=sm,
+        archive=archive,
+        evaluator=evaluator,
+        meta_agent=meta_agent,
+        benchmark=benchmark,
+        primitives_factory=primitives_factory,
+        max_iterations=max_iterations,
+    )
+
+    try:
+        final_state = loop.run()
+    except LockError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"Error: optimization loop failed: {exc}", file=sys.stderr)
+        return 1
+
+    # Print summary
+    print(f"Optimization complete.")
+    print(f"  Iterations: {final_state.current_iteration}")
+    print(f"  Best iteration: {final_state.best_iteration_id or '—'}")
+    print(f"  Total cost (USD): ${final_state.total_cost_usd:.4f}")
     return 0
 
 
@@ -110,7 +182,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("init", help="Initialize a new autoagent project")
     sub.add_parser("status", help="Show current project status")
-    sub.add_parser("run", help="Run the optimization loop")
+
+    run_parser = sub.add_parser("run", help="Run the optimization loop")
+    run_parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=None,
+        help="Maximum number of optimization iterations (default: unlimited)",
+    )
 
     return parser
 

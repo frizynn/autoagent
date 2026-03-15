@@ -64,7 +64,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Monotonic Archive** `risk:low` `depends:[S01,S03]`
   > After this: multiple pipeline iterations are archived on disk with full metrics, pipeline.py diffs, and meta-agent rationale; archive is readable and queryable. Proven by writing 5+ iterations and reading them back with filtering.
 
-- [ ] **S05: The Optimization Loop** `risk:high` `depends:[S01,S02,S03,S04]`
+- [x] **S05: The Optimization Loop** `risk:high` `depends:[S01,S02,S03,S04]`
   > After this: the meta-agent reads the archive, proposes a mutation to pipeline.py, evaluates it against the benchmark, and keeps or discards based on metrics — runs ≥3 iterations autonomously. Proven by running the loop with real LLM calls against a toy benchmark.
 
 - [ ] **S06: Budget, Recovery & Fire-and-Forget** `risk:medium` `depends:[S05]`
