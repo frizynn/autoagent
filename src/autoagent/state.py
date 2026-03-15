@@ -119,6 +119,9 @@ class StateManager:
     ----------
     project_dir : Path | str
         Root directory of the project (parent of ``.autoagent/``).
+    experiment : str | None
+        Experiment name. When set, all paths resolve under
+        ``.autoagent/experiments/<experiment>/`` instead of ``.autoagent/``.
     """
 
     AUTOAGENT_DIR = ".autoagent"
@@ -127,10 +130,13 @@ class StateManager:
     LOCK_FILE = "state.lock"
     ARCHIVE_DIR = "archive"
     PIPELINE_FILE = "pipeline.py"
+    EXPERIMENTS_DIR = "experiments"
+    EXPERIMENTS_REGISTRY = "experiments.json"
 
-    def __init__(self, project_dir: Path | str) -> None:
+    def __init__(self, project_dir: Path | str, experiment: str | None = None) -> None:
         self.project_dir = Path(project_dir).resolve()
         self._aa_dir = self.project_dir / self.AUTOAGENT_DIR
+        self._experiment = experiment
 
     # -- paths -------------------------------------------------------------
 
@@ -139,56 +145,83 @@ class StateManager:
         return self._aa_dir
 
     @property
+    def _data_dir(self) -> Path:
+        """Root for state/config/archive — experiment subdir or aa_dir."""
+        if self._experiment:
+            return self._aa_dir / self.EXPERIMENTS_DIR / self._experiment
+        return self._aa_dir
+
+    @property
     def state_path(self) -> Path:
-        return self._aa_dir / self.STATE_FILE
+        return self._data_dir / self.STATE_FILE
 
     @property
     def config_path(self) -> Path:
-        return self._aa_dir / self.CONFIG_FILE
+        return self._data_dir / self.CONFIG_FILE
 
     @property
     def lock_path(self) -> Path:
-        return self._aa_dir / self.LOCK_FILE
+        return self._data_dir / self.LOCK_FILE
 
     @property
     def archive_dir(self) -> Path:
-        return self._aa_dir / self.ARCHIVE_DIR
+        return self._data_dir / self.ARCHIVE_DIR
 
     @property
     def pipeline_path(self) -> Path:
-        return self._aa_dir / self.PIPELINE_FILE
+        return self._data_dir / self.PIPELINE_FILE
+
+    @property
+    def experiments_dir(self) -> Path:
+        return self._aa_dir / self.EXPERIMENTS_DIR
+
+    @property
+    def experiments_registry_path(self) -> Path:
+        return self._aa_dir / self.EXPERIMENTS_REGISTRY
+
+    @property
+    def experiment(self) -> str | None:
+        return self._experiment
 
     # -- init --------------------------------------------------------------
 
     def init_project(self, goal: str = "") -> None:
-        """Create the ``.autoagent/`` directory with initial files.
+        """Create the project directory with initial files.
+
+        For experiments, creates ``.autoagent/experiments/<name>/``.
+        For legacy mode, creates ``.autoagent/`` with flat layout.
 
         Raises
         ------
         FileExistsError
-            If ``.autoagent/`` already exists.
+            If the target directory already exists.
         """
-        if self._aa_dir.exists():
+        data_dir = self._data_dir
+        if data_dir.exists():
             raise FileExistsError(
-                f"Project already initialized: {self._aa_dir}"
+                f"Already initialized: {data_dir}"
             )
 
-        self._aa_dir.mkdir(parents=True)
-        self.archive_dir.mkdir()
+        # Ensure parent .autoagent/ exists
+        self._aa_dir.mkdir(parents=True, exist_ok=True)
+        data_dir.mkdir(parents=True, exist_ok=True)
+        (data_dir / self.ARCHIVE_DIR).mkdir()
 
         now = _now_iso()
         state = ProjectState(updated_at=now)
         config = ProjectConfig(goal=goal)
 
-        # Write initial files — use direct writes here (directory is fresh,
-        # no concurrent access possible yet).
-        self.state_path.write_text(
+        (data_dir / self.STATE_FILE).write_text(
             json.dumps(state.asdict(), indent=2) + "\n", encoding="utf-8"
         )
-        self.config_path.write_text(
+        (data_dir / self.CONFIG_FILE).write_text(
             json.dumps(config.asdict(), indent=2) + "\n", encoding="utf-8"
         )
-        self.pipeline_path.write_text(STARTER_PIPELINE, encoding="utf-8")
+        (data_dir / self.PIPELINE_FILE).write_text(STARTER_PIPELINE, encoding="utf-8")
+
+        # Update experiments registry if this is an experiment
+        if self._experiment:
+            self._register_experiment(self._experiment, goal)
 
     # -- read / write ------------------------------------------------------
 
@@ -248,13 +281,83 @@ class StateManager:
     # -- query -------------------------------------------------------------
 
     def is_initialized(self) -> bool:
-        """Return True if ``.autoagent/`` exists with required files."""
+        """Return True if the data directory exists with required files."""
+        d = self._data_dir
         return (
-            self._aa_dir.is_dir()
-            and self.state_path.is_file()
-            and self.config_path.is_file()
-            and self.pipeline_path.is_file()
+            d.is_dir()
+            and (d / self.STATE_FILE).is_file()
+            and (d / self.CONFIG_FILE).is_file()
+            and (d / self.PIPELINE_FILE).is_file()
         )
+
+    # -- experiment management ---------------------------------------------
+
+    def _register_experiment(self, name: str, goal: str = "") -> None:
+        """Add an experiment to the registry."""
+        registry = self._read_registry()
+        experiments = registry.get("experiments", [])
+        # Don't duplicate
+        if not any(e["name"] == name for e in experiments):
+            experiments.append({
+                "name": name,
+                "goal": goal,
+                "created_at": _now_iso(),
+            })
+        registry["experiments"] = experiments
+        registry["active"] = name
+        _atomic_write_json(self.experiments_registry_path, registry)
+
+    def _read_registry(self) -> dict[str, Any]:
+        """Read the experiments registry, or return empty default."""
+        if self.experiments_registry_path.exists():
+            try:
+                return json.loads(
+                    self.experiments_registry_path.read_text(encoding="utf-8")
+                )
+            except (json.JSONDecodeError, OSError):
+                pass
+        return {"active": None, "experiments": []}
+
+    def list_experiments(self) -> list[dict[str, Any]]:
+        """List all experiments with their state summaries."""
+        registry = self._read_registry()
+        result = []
+        for exp_info in registry.get("experiments", []):
+            name = exp_info["name"]
+            exp_sm = StateManager(self.project_dir, experiment=name)
+            summary: dict[str, Any] = {
+                "name": name,
+                "goal": exp_info.get("goal", ""),
+                "created_at": exp_info.get("created_at", ""),
+                "active": registry.get("active") == name,
+            }
+            if exp_sm.is_initialized():
+                try:
+                    state = exp_sm.read_state()
+                    config = exp_sm.read_config()
+                    summary["phase"] = state.phase
+                    summary["iteration"] = state.current_iteration
+                    summary["best_iteration_id"] = state.best_iteration_id
+                    summary["total_cost_usd"] = state.total_cost_usd
+                    summary["goal"] = config.goal or summary["goal"]
+                except Exception:
+                    summary["phase"] = "error"
+            result.append(summary)
+        return result
+
+    def get_active_experiment(self) -> str | None:
+        """Return the name of the currently active experiment."""
+        registry = self._read_registry()
+        return registry.get("active")
+
+    def set_active_experiment(self, name: str) -> None:
+        """Set the active experiment."""
+        registry = self._read_registry()
+        experiments = registry.get("experiments", [])
+        if not any(e["name"] == name for e in experiments):
+            raise ValueError(f"Experiment '{name}' not found")
+        registry["active"] = name
+        _atomic_write_json(self.experiments_registry_path, registry)
 
 
 # ---------------------------------------------------------------------------

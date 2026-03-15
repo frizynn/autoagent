@@ -63,7 +63,7 @@ class TestInitProject:
 
     def test_raises_on_existing_autoagent(self, mgr: StateManager) -> None:
         mgr.init_project()
-        with pytest.raises(FileExistsError, match="already initialized"):
+        with pytest.raises(FileExistsError, match="(?i)already initialized"):
             mgr.init_project()
 
     def test_default_goal_is_empty(self, mgr: StateManager) -> None:

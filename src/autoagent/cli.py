@@ -29,25 +29,42 @@ def _resolve_project_dir(args: argparse.Namespace) -> Path:
     return Path(args.project_dir).resolve()
 
 
+def _resolve_experiment(args: argparse.Namespace) -> str | None:
+    """Return experiment name from args, or active experiment from registry."""
+    exp = getattr(args, "experiment", None)
+    if exp:
+        return exp
+    # Check if there's an active experiment in the registry
+    project_dir = _resolve_project_dir(args)
+    sm = StateManager(project_dir)
+    active = sm.get_active_experiment()
+    return active
+
+
+def _resolve_sm(args: argparse.Namespace) -> StateManager:
+    """Build a StateManager from args, with experiment if specified."""
+    return StateManager(_resolve_project_dir(args), _resolve_experiment(args))
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    """Create a new .autoagent/ project directory."""
-    project_dir = _resolve_project_dir(args)
-    sm = StateManager(project_dir)
+    """Create a new .autoagent/ project directory (or experiment)."""
+    sm = _resolve_sm(args)
     try:
         sm.init_project()
     except FileExistsError:
-        print(f"Error: project already initialized at {sm.aa_dir}", file=sys.stderr)
+        print(f"Error: already initialized at {sm._data_dir}", file=sys.stderr)
         return 1
     except OSError as exc:
-        print(f"Error: could not initialize project: {exc}", file=sys.stderr)
+        print(f"Error: could not initialize: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Initialized autoagent project at {sm.aa_dir}")
+    label = f" (experiment: {sm.experiment})" if sm.experiment else ""
+    print(f"Initialized autoagent project at {sm._data_dir}{label}")
     return 0
 
 
@@ -292,11 +309,11 @@ def _build_json_orchestrator(llm: object) -> InterviewOrchestrator:
 def cmd_status(args: argparse.Namespace) -> int:
     """Display current project state."""
     project_dir = _resolve_project_dir(args)
-    sm = StateManager(project_dir)
+    sm = _resolve_sm(args)
 
     if not sm.is_initialized():
         print(
-            f"Error: no autoagent project found at {sm.aa_dir}",
+            f"Error: no autoagent project found at {sm._data_dir}",
             file=sys.stderr,
         )
         return 1
@@ -308,8 +325,9 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"Error: could not read project state: {exc}", file=sys.stderr)
         return 1
 
+    exp_label = f" [{sm.experiment}]" if sm.experiment else ""
     lines = [
-        f"Project:           {project_dir}",
+        f"Project:           {project_dir}{exp_label}",
         f"Phase:             {state.phase}",
         f"Current iteration: {state.current_iteration}",
         f"Best iteration:    {state.best_iteration_id or '—'}",
@@ -408,11 +426,11 @@ def _prepare_loop(
 def cmd_run(args: argparse.Namespace) -> int:
     """Run the optimization loop (headless, --tui, or --jsonl)."""
     project_dir = _resolve_project_dir(args)
-    sm = StateManager(project_dir)
+    sm = _resolve_sm(args)
 
     if not sm.is_initialized():
         print(
-            f"Error: no autoagent project found at {sm.aa_dir}",
+            f"Error: no autoagent project found at {sm._data_dir}",
             file=sys.stderr,
         )
         return 1
@@ -518,6 +536,32 @@ def cmd_watch(args: argparse.Namespace) -> int:
     return run_tui(project_dir=str(project_dir), watch_dir=project_dir)
 
 
+def cmd_experiments(args: argparse.Namespace) -> int:
+    """List all experiments in this project."""
+    project_dir = _resolve_project_dir(args)
+    sm = StateManager(project_dir)
+
+    experiments = sm.list_experiments()
+    if not experiments:
+        print("No experiments found. Create one with:")
+        print("  autoagent -e my-experiment init")
+        return 0
+
+    active = sm.get_active_experiment()
+    print(f"{'':2} {'Name':<20} {'Phase':<12} {'Iter':>5} {'Best':>6} {'Cost':>10} Goal")
+    print(f"{'':2} {'─'*20} {'─'*12} {'─'*5} {'─'*6} {'─'*10} {'─'*30}")
+    for exp in experiments:
+        marker = "▸" if exp["name"] == active else " "
+        phase = exp.get("phase", "—")
+        iteration = exp.get("iteration", 0)
+        best = exp.get("best_iteration_id") or "—"
+        cost = exp.get("total_cost_usd", 0.0)
+        goal = (exp.get("goal") or "—")[:40]
+        print(f"{marker} {exp['name']:<20} {phase:<12} {iteration:>5} {best:>6} ${cost:>9.4f} {goal}")
+
+    return 0
+
+
 def cmd_default(args: argparse.Namespace) -> int:
     """Default command — launch the interactive TUI."""
     project_dir = _resolve_project_dir(args)
@@ -584,6 +628,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=".",
         help="Project root directory (default: current working directory)",
     )
+    parser.add_argument(
+        "--experiment", "-e",
+        default=None,
+        help="Experiment name (runs inside .autoagent/experiments/<name>/)",
+    )
 
     sub = parser.add_subparsers(dest="command")
 
@@ -625,6 +674,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("report", help="Generate optimization report from archive data")
     sub.add_parser("watch", help="Attach a live TUI to an already-running loop")
+    sub.add_parser("experiments", help="List all experiments in this project")
 
     return parser
 
@@ -655,6 +705,7 @@ def main(argv: list[str] | None = None) -> None:
         "status": cmd_status,
         "report": cmd_report,
         "watch": cmd_watch,
+        "experiments": cmd_experiments,
     }
 
     handler = dispatch.get(args.command)
