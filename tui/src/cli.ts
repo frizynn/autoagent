@@ -20,6 +20,11 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { agentDir, sessionsDir, authFilePath, appRoot } from './app-paths.js';
 
+// Import GSD's onboarding wizard (reuse as-is — works on any AuthStorage)
+const gsdPiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'node_modules', 'gsd-pi', 'dist');
+const { shouldRunOnboarding, runOnboarding } = await import(join(gsdPiRoot, 'onboarding.js'));
+const { loadStoredEnvKeys } = await import(join(gsdPiRoot, 'wizard.js'));
+
 // ---------------------------------------------------------------------------
 // Resource syncing — copy bundled extensions to agentDir
 // ---------------------------------------------------------------------------
@@ -89,6 +94,8 @@ function parseArgs(argv: string[]): {
       process.stdout.write('  --model <id>     Override model\n');
       process.stdout.write('  --version, -v    Print version\n');
       process.stdout.write('  --help, -h       Print this help\n');
+      process.stdout.write('\nSubcommands:\n');
+      process.stdout.write('  config             Re-run the setup wizard\n');
       process.stdout.write('\nCommands (inside TUI):\n');
       process.stdout.write('  /autoagent run   Start optimization loop\n');
       process.stdout.write('  /autoagent stop  Stop running loop\n');
@@ -110,7 +117,23 @@ function parseArgs(argv: string[]): {
 
 const cliFlags = parseArgs(process.argv);
 
+// `autoagent config` — replay the setup wizard and exit
+if (cliFlags.messages[0] === 'config') {
+  const authStorage = AuthStorage.create(authFilePath);
+  await runOnboarding(authStorage);
+  process.exit(0);
+}
+
 const authStorage = AuthStorage.create(authFilePath);
+
+// Load stored env keys (tool API keys from auth.json → process.env)
+loadStoredEnvKeys(authStorage);
+
+// Run onboarding wizard on first launch if no LLM provider configured
+if (!cliFlags.print && shouldRunOnboarding(authStorage)) {
+  await runOnboarding(authStorage);
+}
+
 const modelRegistry = new ModelRegistry(authStorage);
 const settingsManager = SettingsManager.create(agentDir);
 
