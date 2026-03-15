@@ -65,6 +65,7 @@ class SequentialMockMetaAgent:
         kept_entries: list[ArchiveEntry] | None = None,
         discarded_entries: list[ArchiveEntry] | None = None,
         benchmark_description: str = "",
+        archive_summary: str = "",
     ) -> ProposalResult:
         idx = self._call_count % len(self._proposals)
         self._call_count += 1

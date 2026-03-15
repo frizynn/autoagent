@@ -309,3 +309,57 @@ class TestImportContract:
         from autoagent.meta_agent import MetaAgent, ProposalResult
         assert MetaAgent is not None
         assert ProposalResult is not None
+
+
+# ---------------------------------------------------------------------------
+# archive_summary parameter in _build_prompt
+# ---------------------------------------------------------------------------
+
+
+class TestArchiveSummaryPrompt:
+    """Tests for the archive_summary parameter in _build_prompt()."""
+
+    def test_archive_summary_replaces_raw_entries(self):
+        """When archive_summary is set, it appears and raw entry sections do not."""
+        collector = MetricsCollector()
+        llm = MockLLM(collector=collector)
+        agent = MetaAgent(llm, goal="Maximize accuracy")
+
+        kept = [_make_entry(1, "keep", 0.9, "good iteration")]
+        discarded = [_make_entry(2, "discard", 0.3, "bad iteration")]
+
+        prompt = agent._build_prompt(
+            "source code",
+            kept,
+            discarded,
+            archive_summary="## Top-K Results\n- Iteration 1 (score=0.9)",
+        )
+
+        # Archive Summary section should be present
+        assert "## Archive Summary" in prompt
+        assert "## Top-K Results" in prompt
+        assert "Iteration 1 (score=0.9)" in prompt
+
+        # Raw entry sections should NOT be present
+        assert "## Top Kept Iterations" not in prompt
+        assert "## Recent Discarded Iterations" not in prompt
+
+    def test_no_archive_summary_preserves_raw_entries(self):
+        """When archive_summary is empty, raw kept/discarded sections appear as before."""
+        collector = MetricsCollector()
+        llm = MockLLM(collector=collector)
+        agent = MetaAgent(llm, goal="Maximize accuracy")
+
+        kept = [_make_entry(1, "keep", 0.9, "good iteration")]
+        discarded = [_make_entry(2, "discard", 0.3, "bad iteration")]
+
+        prompt = agent._build_prompt("source code", kept, discarded)
+
+        # Raw entry sections should be present
+        assert "## Top Kept Iterations" in prompt
+        assert "## Recent Discarded Iterations" in prompt
+        assert "good iteration" in prompt
+        assert "bad iteration" in prompt
+
+        # Archive Summary section should NOT be present
+        assert "## Archive Summary" not in prompt

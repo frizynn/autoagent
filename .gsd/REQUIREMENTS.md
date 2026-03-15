@@ -94,16 +94,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Validation: unmapped
 - Notes: Generated pipeline must use instrumented primitives
 
-### R016 — Archive Compression for Scale
-- Class: continuity
-- Status: active
-- Description: After many iterations, archive is compressed into structured summary (top-K, failure clusters, unexplored regions) that fits context window, with drill-down capability
-- Why it matters: After 200 iterations, raw archive exceeds any context window — compression preserves intelligence
-- Source: user
-- Primary owning slice: M002/S01
-- Supporting slices: M001/S04
-- Validation: unmapped
-- Notes: Like GSD-2's summary compression for downstream tasks
 
 ### R018 — Provider-Agnostic Primitives
 - Class: integration
@@ -270,6 +260,17 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Validation: validated — Per-example timeout implemented in S03, wired into optimization loop in S05. Timeout → score 0.0, discard, continue.
 - Notes: Timeout → treat as failure, discard, move on
 
+### R016 — Archive Compression for Scale
+- Class: continuity
+- Status: validated
+- Description: After many iterations, archive is compressed into structured summary (top-K, failure clusters, unexplored regions) that fits context window, with drill-down capability
+- Why it matters: After 200 iterations, raw archive exceeds any context window — compression preserves intelligence
+- Source: user
+- Primary owning slice: M002/S01
+- Supporting slices: M001/S04
+- Validation: validated — ArchiveSummarizer produces structured summaries with 4 sections (Top-K Results, Failure Clusters, Unexplored Regions, Score Trends) from 50+ entries within ~3K token budget. OptimizationLoop switches from raw entries to summaries past configurable threshold. Compression cost tracked in budget. Graceful fallback on failure. 25 tests (17 unit + 8 integration). Drill-down capability deferred.
+- Notes: Like GSD-2's summary compression for downstream tasks
+
 ## Deferred
 
 (none yet)
@@ -317,7 +318,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R013 | core-capability | active | M002/S04 | M002/S01 | unmapped |
 | R014 | quality-attribute | active | M003/S01 | M003/S02, M003/S03 | unmapped |
 | R015 | core-capability | active | M002/S05 | M004/S01 | unmapped |
-| R016 | continuity | active | M002/S01 | M001/S04 | unmapped |
+| R016 | continuity | validated | M002/S01 | M001/S04 | validated (S01) |
 | R017 | operability | validated | M001/S06 | M004/S04 | validated (S06) |
 | R018 | integration | active | M001/S01 | none | unmapped |
 | R019 | primary-user-loop | validated | M001/S06 | M004/S04 | validated (S05+S06) |
@@ -331,7 +332,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 14
+- Active requirements: 13
 - Mapped to slices: 24
-- Validated: 10
+- Validated: 11
 - Unmapped active requirements: 0

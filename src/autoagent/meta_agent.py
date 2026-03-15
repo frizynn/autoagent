@@ -94,6 +94,7 @@ class MetaAgent:
         kept_entries: list[ArchiveEntry],
         discarded_entries: list[ArchiveEntry],
         benchmark_description: str = "",
+        archive_summary: str = "",
     ) -> str:
         """Build a structured prompt for the LLM.
 
@@ -127,31 +128,35 @@ class MetaAgent:
             f"## Current Pipeline\n```python\n{current_source}\n```"
         )
 
-        # History — top kept
-        if kept_entries:
-            kept_lines: list[str] = []
-            for entry in kept_entries:
-                score = entry.evaluation_result.get("primary_score", "?")
-                kept_lines.append(
-                    f"- Iteration {entry.iteration_id} (score={score}): "
-                    f"{entry.rationale}"
+        # History — either compressed summary or raw entries
+        if archive_summary:
+            sections.append(f"## Archive Summary\n{archive_summary}")
+        else:
+            # History — top kept
+            if kept_entries:
+                kept_lines: list[str] = []
+                for entry in kept_entries:
+                    score = entry.evaluation_result.get("primary_score", "?")
+                    kept_lines.append(
+                        f"- Iteration {entry.iteration_id} (score={score}): "
+                        f"{entry.rationale}"
+                    )
+                sections.append(
+                    "## Top Kept Iterations\n" + "\n".join(kept_lines)
                 )
-            sections.append(
-                "## Top Kept Iterations\n" + "\n".join(kept_lines)
-            )
 
-        # History — recent discards
-        if discarded_entries:
-            discard_lines: list[str] = []
-            for entry in discarded_entries:
-                discard_lines.append(
-                    f"- Iteration {entry.iteration_id}: "
-                    f"{entry.rationale}"
+            # History — recent discards
+            if discarded_entries:
+                discard_lines: list[str] = []
+                for entry in discarded_entries:
+                    discard_lines.append(
+                        f"- Iteration {entry.iteration_id}: "
+                        f"{entry.rationale}"
+                    )
+                sections.append(
+                    "## Recent Discarded Iterations (avoid these mistakes)\n"
+                    + "\n".join(discard_lines)
                 )
-            sections.append(
-                "## Recent Discarded Iterations (avoid these mistakes)\n"
-                + "\n".join(discard_lines)
-            )
 
         return "\n\n".join(sections)
 
@@ -213,6 +218,7 @@ class MetaAgent:
         kept_entries: list[ArchiveEntry] | None = None,
         discarded_entries: list[ArchiveEntry] | None = None,
         benchmark_description: str = "",
+        archive_summary: str = "",
     ) -> ProposalResult:
         """Propose a pipeline mutation.
 
@@ -233,7 +239,8 @@ class MetaAgent:
         )
 
         prompt = self._build_prompt(
-            current_source, kept, discarded, benchmark_description
+            current_source, kept, discarded, benchmark_description,
+            archive_summary=archive_summary,
         )
 
         # Call LLM

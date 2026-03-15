@@ -50,7 +50,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Archive Compression & Summarization** `risk:high` `depends:[]`
+- [x] **S01: Archive Compression & Summarization** `risk:high` `depends:[]`
   > After this: `autoagent run` on a project with 50+ iterations uses LLM-generated archive summaries (~3K tokens) instead of raw entries in the meta-agent prompt. Summaries show top-K kept, failure clusters, unexplored regions, and score trends. Compression cost tracked in budget.
 
 - [ ] **S02: Structural Search & Component Vocabulary** `risk:high` `depends:[]`

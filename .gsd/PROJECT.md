@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 complete. All 6 slices delivered and verified. The full autonomous optimization loop works end-to-end: `autoagent init` scaffolds a project, `autoagent run` executes autonomous iterations where MetaAgent proposes pipeline mutations, Evaluator scores them against benchmarks, and OptimizationLoop keeps or discards based on metrics. Budget ceiling auto-pauses before overspending. Crash recovery resumes from last committed iteration with archive state reconstruction. 181 tests passing across all modules. 10 requirements validated (R001-R006, R008, R017, R019, R022).
+M001 complete. M002 S01 (Archive Compression & Summarization) complete — ArchiveSummarizer compresses 50+ archive entries into structured ~3K token LLM summaries, OptimizationLoop switches to summaries past configurable threshold with cost tracking and graceful fallback. 208 tests passing. 11 requirements validated (R001-R006, R008, R016, R017, R019, R022).
 
-Next: M002 (Search Intelligence) — structural search, parameter optimization, exploration/exploitation, cold-start, archive compression.
+Next: M002 S02 (Structural Search & Component Vocabulary) and S04 (Cold-Start) are unblocked. S03 (Strategy Selection) depends on S01+S02.
 
 ## Architecture / Key Patterns
 

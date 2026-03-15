@@ -10,10 +10,15 @@ MetaAgent failures (compile/validation errors) produce discard entries
 without halting the loop.
 Budget exhaustion triggers phase="paused" (distinct from "completed").
 Resume from "paused" or stale "running" reconstructs best state from archive.
+
+When the archive exceeds summary_threshold, an LLM-generated summary replaces
+raw entries in the meta-agent prompt. The summary is cached and regenerated
+every summary_interval iterations. Summarizer cost counts against budget_usd.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -25,9 +30,12 @@ from autoagent.benchmark import Benchmark
 from autoagent.evaluation import EvaluationResult, Evaluator, ExampleResult
 from autoagent.meta_agent import MetaAgent, ProposalResult
 from autoagent.pipeline import PipelineRunner
-from autoagent.primitives import PrimitivesContext
+from autoagent.primitives import LLMProtocol, MetricsCollector, PrimitivesContext
 from autoagent.state import ProjectState, StateManager
+from autoagent.summarizer import ArchiveSummarizer
 from autoagent.types import MetricsSnapshot
+
+logger = logging.getLogger(__name__)
 
 
 def _now_iso() -> str:
@@ -69,6 +77,12 @@ class OptimizationLoop:
     budget_usd:
         Hard dollar ceiling. Loop pauses before exceeding this amount.
         None = no budget limit.
+    summary_threshold:
+        Archive size at which summaries replace raw entries in the prompt.
+    summary_interval:
+        Regenerate summary every N iterations past threshold.
+    summarizer_llm:
+        LLM for summarization. If None, uses meta_agent's LLM.
     """
 
     def __init__(
@@ -81,6 +95,9 @@ class OptimizationLoop:
         primitives_factory: Callable[[], PrimitivesContext],
         max_iterations: int | None = None,
         budget_usd: float | None = None,
+        summary_threshold: int = 20,
+        summary_interval: int = 10,
+        summarizer_llm: LLMProtocol | None = None,
     ) -> None:
         self.state_manager = state_manager
         self.archive = archive
@@ -90,6 +107,12 @@ class OptimizationLoop:
         self.primitives_factory = primitives_factory
         self.max_iterations = max_iterations
         self.budget_usd = budget_usd
+        self.summary_threshold = summary_threshold
+        self.summary_interval = summary_interval
+        self.summarizer_llm = summarizer_llm
+        # Cached summary state
+        self._cached_summary: str = ""
+        self._summary_archive_len: int = 0
 
     def run(self) -> ProjectState:
         """Execute the optimization loop.
@@ -190,19 +213,67 @@ class OptimizationLoop:
                 iterations_run += 1
 
                 # Gather archive context for the meta-agent
-                kept_entries = self.archive.query(
-                    decision="keep", sort_by="primary_score",
-                    ascending=False, limit=3,
-                )
-                discarded_entries = self.archive.query(
-                    decision="discard", limit=3,
-                )
+                all_entries = self.archive.query()
+                archive_len = len(all_entries)
+                archive_summary = ""
+
+                if archive_len >= self.summary_threshold:
+                    # Check if summary needs (re)generation
+                    needs_summary = (
+                        not self._cached_summary
+                        or (archive_len - self._summary_archive_len) >= self.summary_interval
+                    )
+                    if needs_summary:
+                        # Resolve LLM: prefer explicit summarizer_llm, fall back to meta_agent's
+                        sum_llm = self.summarizer_llm or getattr(self.meta_agent, "llm", None)
+                        if sum_llm is not None:
+                            try:
+                                summarizer = ArchiveSummarizer(
+                                    llm=sum_llm,
+                                    resummarize_interval=self.summary_interval,
+                                )
+                                result = summarizer.summarize(all_entries)
+                                if result.text:
+                                    self._cached_summary = result.text
+                                    self._summary_archive_len = archive_len
+                                    total_cost += result.cost_usd
+                                    logger.info(
+                                        "Archive summary regenerated: %d entries, $%.6f",
+                                        archive_len,
+                                        result.cost_usd,
+                                    )
+                                else:
+                                    logger.warning(
+                                        "Summarizer returned empty text, falling back to raw entries"
+                                    )
+                            except Exception:
+                                logger.warning(
+                                    "Summarizer failed, falling back to raw entries",
+                                    exc_info=True,
+                                )
+
+                    archive_summary = self._cached_summary
+
+                if archive_summary:
+                    # Use summary — skip raw entry gathering
+                    kept_entries: list[ArchiveEntry] = []
+                    discarded_entries: list[ArchiveEntry] = []
+                else:
+                    # Below threshold or summary unavailable — use raw entries
+                    kept_entries = self.archive.query(
+                        decision="keep", sort_by="primary_score",
+                        ascending=False, limit=3,
+                    )
+                    discarded_entries = self.archive.query(
+                        decision="discard", limit=3,
+                    )
 
                 # Propose a mutation
                 proposal = self.meta_agent.propose(
                     current_source=current_best_source,
                     kept_entries=kept_entries,
                     discarded_entries=discarded_entries,
+                    archive_summary=archive_summary,
                 )
                 total_cost += proposal.cost_usd
 
