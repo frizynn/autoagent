@@ -257,6 +257,23 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     max_iterations = getattr(args, "max_iterations", None)
     budget = getattr(args, "budget", None)
+    jsonl_mode = getattr(args, "jsonl", False)
+
+    # JSONL mode: structured events on stdout, human output on stderr
+    event_callback = None
+    original_print = print  # noqa: T202
+    if jsonl_mode:
+        import builtins
+
+        def _stderr_print(*a: object, **kw: object) -> None:
+            kw.setdefault("file", sys.stderr)  # type: ignore[arg-type]
+            original_print(*a, **kw)
+
+        builtins.print = _stderr_print  # type: ignore[assignment]
+
+        def event_callback(event: dict) -> None:  # type: ignore[no-redef]
+            sys.stdout.write(json.dumps(event) + "\n")
+            sys.stdout.flush()
 
     # Persist budget to config if provided
     if budget is not None:
@@ -273,15 +290,22 @@ def cmd_run(args: argparse.Namespace) -> int:
         primitives_factory=primitives_factory,
         max_iterations=max_iterations,
         budget_usd=budget if budget is not None else config.budget_usd,
+        event_callback=event_callback,
     )
 
     try:
         final_state = loop.run()
     except LockError as exc:
         print(f"Error: {exc}", file=sys.stderr)
+        if jsonl_mode:
+            import builtins
+            builtins.print = original_print  # type: ignore[assignment]
         return 1
     except Exception as exc:
         print(f"Error: optimization loop failed: {exc}", file=sys.stderr)
+        if jsonl_mode:
+            import builtins
+            builtins.print = original_print  # type: ignore[assignment]
         return 1
 
     # Print summary
@@ -292,6 +316,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  Iterations: {final_state.current_iteration}")
     print(f"  Best iteration: {final_state.best_iteration_id or '—'}")
     print(f"  Total cost (USD): ${final_state.total_cost_usd:.4f}")
+
+    # Restore builtins.print if we overrode it
+    if jsonl_mode:
+        import builtins
+        builtins.print = original_print  # type: ignore[assignment]
+
     return 0
 
 
@@ -362,6 +392,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="Budget ceiling in USD — loop pauses before exceeding (default: unlimited)",
+    )
+    run_parser.add_argument(
+        "--jsonl",
+        action="store_true",
+        default=False,
+        help="Emit structured JSON lines to stdout (human output goes to stderr)",
     )
 
     sub.add_parser("report", help="Generate optimization report from archive data")

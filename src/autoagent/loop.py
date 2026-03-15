@@ -106,6 +106,7 @@ class OptimizationLoop:
         tla_verifier: TLAVerifier | None = None,
         leakage_checker: LeakageChecker | None = None,
         sandbox_runner: SandboxRunner | None = None,
+        event_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.state_manager = state_manager
         self.archive = archive
@@ -120,6 +121,7 @@ class OptimizationLoop:
         self.summarizer_llm = summarizer_llm
         self.tla_verifier = tla_verifier
         self.leakage_checker = leakage_checker
+        self.event_callback = event_callback
 
         # Sandbox runner — wire into evaluator when Docker is available
         self._sandbox_used = False
@@ -151,6 +153,11 @@ class OptimizationLoop:
             "network_policy": "none" if self._sandbox_used else None,
             "fallback_reason": self._sandbox_fallback_reason,
         }
+
+    def _emit(self, event: dict[str, Any]) -> None:
+        """Dispatch an event dict to the callback, if registered."""
+        if self.event_callback is not None:
+            self.event_callback(event)
 
     def run(self) -> ProjectState:
         """Execute the optimization loop.
@@ -230,6 +237,13 @@ class OptimizationLoop:
                 # will be kept. current_best_source stays as whatever is on disk.
 
             iterations_run = 0
+            self._emit({
+                "event": "loop_start",
+                "timestamp": _now_iso(),
+                "goal": getattr(self.meta_agent, "goal", ""),
+                "budget_usd": self.budget_usd,
+                "phase": state.phase,
+            })
             while self.max_iterations is None or iterations_run < self.max_iterations:
                 # --- Budget check before iteration ---
                 if self.budget_usd is not None:
@@ -262,6 +276,12 @@ class OptimizationLoop:
 
                 iteration += 1
                 iterations_run += 1
+                iter_start_time = time.monotonic()
+                self._emit({
+                    "event": "iteration_start",
+                    "timestamp": _now_iso(),
+                    "iteration": iteration,
+                })
 
                 # Gather archive context for the meta-agent
                 all_entries = self.archive.query()
@@ -582,9 +602,42 @@ class OptimizationLoop:
                 )
                 sm.write_state(state)
 
+                elapsed_ms = (time.monotonic() - iter_start_time) * 1000
+                self._emit({
+                    "event": "iteration_end",
+                    "timestamp": _now_iso(),
+                    "iteration": iteration,
+                    "score": score,
+                    "decision": decision,
+                    "cost_usd": total_cost,
+                    "elapsed_ms": round(elapsed_ms, 1),
+                    "best_iteration_id": best_iteration_id,
+                    "rationale": proposal.rationale,
+                    "mutation_type": mt,
+                })
+
             # Loop finished — mark completed
             state = replace(state, phase="completed", updated_at=_now_iso())
             sm.write_state(state)
+            self._emit({
+                "event": "loop_end",
+                "timestamp": _now_iso(),
+                "phase": state.phase,
+                "total_iterations": iteration,
+                "total_cost_usd": total_cost,
+                "best_iteration_id": best_iteration_id,
+            })
+
+        except Exception as exc:
+            # Emit error event before releasing lock
+            _iter = locals().get("iteration", 0)
+            self._emit({
+                "event": "error",
+                "timestamp": _now_iso(),
+                "message": str(exc),
+                "iteration": _iter,
+            })
+            raise
 
         finally:
             sm.release_lock()
