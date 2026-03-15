@@ -19,11 +19,7 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, copyFileSync } from '
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { agentDir, sessionsDir, authFilePath, appRoot } from './app-paths.js';
-
-// Import GSD's onboarding wizard (reuse as-is — works on any AuthStorage)
-const gsdPiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'node_modules', 'gsd-pi', 'dist');
-const { shouldRunOnboarding, runOnboarding } = await import(join(gsdPiRoot, 'onboarding.js'));
-const { loadStoredEnvKeys } = await import(join(gsdPiRoot, 'wizard.js'));
+import { shouldRunOnboarding, runOnboarding, loadStoredEnvKeys } from './onboarding.js';
 
 // ---------------------------------------------------------------------------
 // Resource syncing — copy bundled extensions to agentDir

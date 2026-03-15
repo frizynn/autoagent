@@ -19,26 +19,11 @@ process.env.PI_PACKAGE_DIR = pkgDir;
 process.env.PI_SKIP_VERSION_CHECK = '1';
 process.title = 'autoagent';
 
-// Print banner on first launch
+// Brief first-launch notice (onboarding wizard handles the real banner)
 if (!existsSync(appRoot)) {
-  const cyan = '\x1b[36m';
-  const bold = '\x1b[1m';
   const dim = '\x1b[2m';
   const reset = '\x1b[0m';
-
-  let version = '0.1.0';
-  try {
-    const pkg = JSON.parse(
-      readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8'),
-    );
-    version = pkg.version ?? version;
-  } catch { /* ignore */ }
-
-  process.stderr.write(
-    `\n  ${cyan}${bold}AutoAgent${reset} ${dim}v${version}${reset}\n` +
-    `  Autonomous optimization for agentic architectures\n` +
-    `  Setting up your environment...\n\n`,
-  );
+  process.stderr.write(`${dim}Setting up AutoAgent...${reset}\n`);
 }
 
 ensureDirs();
