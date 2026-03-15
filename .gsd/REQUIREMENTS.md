@@ -58,7 +58,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S06
 - Supporting slices: M001/S02
-- Validation: unmapped
+- Validation: partial — atomic writes, PID-based lock with stale detection implemented in S02. Full crash recovery (kill/restart/resume) in S06.
 - Notes: GSD-2 style — lock files, state reconstruction from disk
 
 ### R006 — PI-Based CLI
@@ -69,8 +69,8 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S02
 - Supporting slices: M004/S05
-- Validation: unmapped
-- Notes: Meta-agent runs on user's coding agent subscription (Claude Code Max, Codex, etc.)
+- Validation: partial — CLI commands work via argparse (D017: PI is Node.js, no Python SDK). init/status/run implemented. Full meta-agent integration in S05.
+- Notes: Meta-agent runs on user's coding agent subscription (Claude Code Max, Codex, etc.). Reinterpreted as standard Python CLI per D017.
 
 ### R007 — GSD-2 Depth Interview Phase
 - Class: primary-user-loop

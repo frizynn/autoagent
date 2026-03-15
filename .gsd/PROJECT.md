@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-S01 (Pipeline Execution Engine) complete. The foundational type contracts (`MetricsSnapshot`, `PipelineResult`, `ErrorInfo`), instrumented primitives (`LLMProtocol`, `RetrieverProtocol`, `MockLLM`, `MockRetriever`, `OpenAILLM`), metrics collection (`MetricsCollector`), and dynamic pipeline execution (`PipelineRunner`) are implemented and tested (41 tests passing). Downstream slices can import and build on these contracts.
+S01 (Pipeline Execution Engine) and S02 (CLI Scaffold & Disk State) complete. The foundational type contracts (`MetricsSnapshot`, `PipelineResult`, `ErrorInfo`), instrumented primitives (`LLMProtocol`, `RetrieverProtocol`, `MockLLM`, `MockRetriever`, `OpenAILLM`), metrics collection (`MetricsCollector`), and dynamic pipeline execution (`PipelineRunner`) are implemented and tested (41 tests). The disk state layer (`StateManager` with atomic writes, PID-based lock protocol), CLI commands (`autoagent init/status/run`), and console script entry point are implemented and tested (33 tests). 74 total tests passing.
 
-Next: S02 (CLI Scaffold & Disk State) and S03 (Evaluation & Benchmark) can proceed — S02 has no dependencies, S03 depends on S01 which is now complete.
+Next: S03 (Evaluation & Benchmark) depends on S01 which is complete. S04 depends on S01+S03. S05 depends on S01+S02+S03+S04.
 
 ## Architecture / Key Patterns
 

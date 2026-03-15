@@ -35,6 +35,9 @@ dev = [
     "mypy>=1.13",
 ]
 
+[project.scripts]
+autoagent = "autoagent.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/frizynn/autoagent"
 Repository = "https://github.com/frizynn/autoagent"

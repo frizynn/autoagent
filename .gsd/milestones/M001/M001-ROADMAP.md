@@ -55,7 +55,7 @@ This milestone is complete only when all are true:
 - [x] **S01: Pipeline Execution Engine** `risk:high` `depends:[]`
   > After this: a hand-written pipeline.py using instrumented primitives (LLM, Retriever) runs and reports latency, tokens, cost metrics to stdout. Proven by running a toy RAG pipeline against a mock LLM provider.
 
-- [ ] **S02: CLI Scaffold & Disk State** `risk:medium` `depends:[]`
+- [x] **S02: CLI Scaffold & Disk State** `risk:medium` `depends:[]`
   > After this: `autoagent init` creates .autoagent/ project structure with state files; `autoagent status` reads and displays current state from disk. Proven by CLI commands producing correct filesystem output.
 
 - [ ] **S03: Evaluation & Benchmark** `risk:medium` `depends:[S01]`
