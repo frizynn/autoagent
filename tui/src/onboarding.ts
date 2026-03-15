@@ -39,10 +39,11 @@ async function loadPico() {
 
 /** Open URL in browser (best-effort) */
 function openBrowser(url: string): void {
-  const { exec } = require('node:child_process');
-  const cmd = process.platform === 'darwin' ? 'open' :
-    process.platform === 'win32' ? 'start' : 'xdg-open';
-  exec(`${cmd} "${url}"`, () => {});
+  import('node:child_process').then(({ exec }) => {
+    const cmd = process.platform === 'darwin' ? 'open' :
+      process.platform === 'win32' ? 'start' : 'xdg-open';
+    exec(`${cmd} "${url}"`, () => {});
+  });
 }
 
 export function shouldRunOnboarding(authStorage: AuthStorage): boolean {
@@ -160,7 +161,9 @@ export async function runOnboarding(authStorage: AuthStorage): Promise<void> {
         llmConfigured = true;
       } catch (err: any) {
         s.stop('Authentication failed');
-        p.log.warn(err.message);
+        const msg = err instanceof Error ? err.message : String(err);
+        p.log.warn(`Auth error: ${msg}`);
+        p.log.info(c.dim('You can try again with /login inside the TUI'));
       }
     }
   }
