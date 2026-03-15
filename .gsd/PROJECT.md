@@ -10,14 +10,18 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001, M002, and M003 complete. M004 S01 (Interview Orchestrator) and S02 (Benchmark Generation) complete. `autoagent new` runs a multi-turn LLM-driven interview that challenges vague input, collects goal/metrics/constraints/search space/benchmark/budget, and writes `config.json` + `context.md` to `.autoagent/`. When no benchmark is provided, `BenchmarkGenerator` auto-generates `{input, expected}` JSON from the goal, validates for leakage and diversity, and writes `benchmark.json`. 443 tests passing. 19 requirements validated (R001-R010, R014-R017, R019-R023).
-
-Next: M004 S03 (Reporting & End-to-End Assembly).
+M001 through M004 complete. The full user experience is implemented:
+- `autoagent new` runs a multi-turn LLM-driven interview that challenges vague input, collects goal/metrics/constraints/search space/benchmark/budget, and writes `config.json` + `context.md` to `.autoagent/`.
+- When no benchmark is provided, `BenchmarkGenerator` auto-generates `{input, expected}` JSON from the goal, validates for leakage and diversity, and writes `benchmark.json`.
+- `autoagent run` executes the optimization loop with safety gates (TLA+ → leakage → sandbox evaluation → Pareto keep/discard).
+- `autoagent report` generates a structured markdown report with score trajectory, top architectures, cost breakdown, and recommendations.
+- Full cold-start flow proven end-to-end with MockLLM: interview → benchmark generation → optimization loop → report.
+- 469 tests passing. 19 requirements validated.
 
 ## Architecture / Key Patterns
 
 - **Python 3.11+**, hatchling build system
-- **Standard Python CLI** via argparse (GSD-2 style commands: init, run, status)
+- **Standard Python CLI** via argparse (GSD-2 style commands: init, run, status, new, report)
 - **Single mutable file** (`pipeline.py`) — all mutations constrained to one file per autoresearch pattern
 - **Disk-based state** (`.autoagent/` directory) — crash-recoverable, no in-memory state
 - **Instrumented primitives** (LLM, Retriever, Tool, Agent) with auto-measurement via MetricsCollector
@@ -28,6 +32,8 @@ Next: M004 S03 (Reporting & End-to-End Assembly).
 - **Archive-based recovery** — resume reconstructs best_score and restores pipeline.py from archive
 - **Safety gate sequence** — TLA+ → leakage → evaluation (with sandbox) → Pareto keep/discard
 - **Graceful degradation** — safety gates skip with warnings when Java/Docker unavailable
+- **Multi-turn interview** — LLM-driven with vague-input detection and follow-up probes
+- **Composable report sections** — independently callable functions for targeted inspection
 
 ## Capability Contract
 
@@ -38,4 +44,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M001: Core Loop & Infrastructure — Pipeline execution, CLI, archive, the optimization loop, budget, crash recovery
 - [x] M002: Search Intelligence — Structural search, parameter optimization, exploration/exploitation, cold-start, archive compression
 - [x] M003: Safety & Verification — TLA+ verification, data leakage guardrail, Pareto evaluation, reward hacking defense, sandbox
-- [ ] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting
+- [x] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting

@@ -20,6 +20,7 @@ from autoagent.interview import InterviewOrchestrator, SequenceMockLLM
 from autoagent.loop import OptimizationLoop
 from autoagent.meta_agent import MetaAgent
 from autoagent.primitives import MetricsCollector, MockLLM, PrimitivesContext, MockRetriever
+from autoagent.report import generate_report
 from autoagent.state import STARTER_PIPELINE, LockError, StateManager
 
 
@@ -294,6 +295,38 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    """Generate a markdown report from archive data."""
+    project_dir = _resolve_project_dir(args)
+    sm = StateManager(project_dir)
+
+    if not sm.is_initialized():
+        print(
+            f"Error: no autoagent project found at {sm.aa_dir}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        state = sm.read_state()
+        config = sm.read_config()
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"Error: could not read project state: {exc}", file=sys.stderr)
+        return 1
+
+    archive = Archive(sm.archive_dir)
+    entries = archive.query()
+
+    result = generate_report(entries, state, config)
+
+    # Write report to disk
+    report_path = sm.aa_dir / "report.md"
+    report_path.write_text(result.markdown, encoding="utf-8")
+
+    print(result.summary)
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
@@ -331,6 +364,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Budget ceiling in USD — loop pauses before exceeding (default: unlimited)",
     )
 
+    sub.add_parser("report", help="Generate optimization report from archive data")
+
     return parser
 
 
@@ -353,6 +388,7 @@ def main(argv: list[str] | None = None) -> None:
         "new": cmd_new,
         "run": cmd_run,
         "status": cmd_status,
+        "report": cmd_report,
     }
 
     handler = dispatch.get(args.command)
