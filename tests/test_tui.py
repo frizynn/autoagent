@@ -248,3 +248,83 @@ async def test_tui_no_project_state() -> None:
         await pilot.pause()
         assert app.phase == "no project"
         assert not app._project_initialized
+
+
+async def test_tui_interview_prompt_shows_input() -> None:
+    """Interview prompt messages should show the input bar."""
+    app = AutoagentApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Simulate interview mode
+        app._interviewing = True
+        app._interview_queue.put({
+            "type": "prompt",
+            "phase": "goal",
+            "question": "What is your goal?",
+        })
+
+        await pilot.pause()
+        app._poll_interview()
+        await pilot.pause()
+
+        # Input bar should be visible
+        bar = app.query_one("#interview-bar")
+        assert "visible" in bar.classes
+
+
+async def test_tui_interview_complete_reloads() -> None:
+    """Complete message should end interview mode."""
+    app = AutoagentApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._interviewing = True
+        app._interview_queue.put({
+            "type": "complete",
+            "config": {"goal": "test"},
+            "context": "test context",
+        })
+
+        await pilot.pause()
+        app._poll_interview()
+        await pilot.pause()
+
+        assert not app._interviewing
+        bar = app.query_one("#interview-bar")
+        assert "visible" not in bar.classes
+
+
+async def test_tui_interview_error_ends_interview() -> None:
+    """Error message should end interview mode."""
+    app = AutoagentApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._interviewing = True
+        app._interview_queue.put({
+            "type": "error",
+            "message": "Something failed",
+        })
+
+        await pilot.pause()
+        app._poll_interview()
+        await pilot.pause()
+
+        assert not app._interviewing
+
+
+async def test_tui_interview_cancel() -> None:
+    """Escape during interview should cancel it."""
+    app = AutoagentApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._interviewing = True
+        app._interview_queue.put({
+            "type": "prompt",
+            "phase": "goal",
+            "question": "What is your goal?",
+        })
+
+        await pilot.pause()
+        app._poll_interview()
+        await pilot.pause()
+
+        # Press escape to cancel
+        await pilot.press("escape")
+        await pilot.pause()
+
+        assert not app._interviewing

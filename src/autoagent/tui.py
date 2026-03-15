@@ -31,6 +31,7 @@ from textual.widgets import (
     DataTable,
     Footer,
     Header,
+    Input,
     Label,
     ProgressBar,
     RichLog,
@@ -179,6 +180,106 @@ class LoopSubprocess:
 
 
 # ---------------------------------------------------------------------------
+# Interview subprocess — drives `autoagent new --json`
+# ---------------------------------------------------------------------------
+
+
+class InterviewSubprocess:
+    """Manages the interview as a child process using the JSON protocol.
+
+    Spawns ``autoagent new --json``, reads JSON messages from stdout,
+    and writes JSON answers to stdin. Messages are put into a queue
+    for the TUI to render.
+
+    Protocol (Python → TUI):
+      prompt   { type: "prompt", phase: str, question: str }
+      confirm  { type: "confirm", summary: str }
+      status   { type: "status", message: str }
+      complete { type: "complete", config: dict, context: str }
+      error    { type: "error", message: str }
+
+    Responses (TUI → Python):
+      answer   { type: "answer", text: str }
+      abort    { type: "abort" }
+    """
+
+    def __init__(self, project_dir: str, msg_queue: queue.Queue[dict[str, Any]]) -> None:
+        self._project_dir = project_dir
+        self._queue = msg_queue
+        self._proc: subprocess.Popen[str] | None = None
+        self._reader_thread: threading.Thread | None = None
+
+    @property
+    def running(self) -> bool:
+        return self._proc is not None and self._proc.poll() is None
+
+    def start(self) -> None:
+        """Spawn the interview subprocess."""
+        if self.running:
+            return
+
+        args = [
+            sys.executable, "-m", "autoagent.cli",
+            "--project-dir", self._project_dir,
+            "new", "--json",
+        ]
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+
+        self._proc = subprocess.Popen(
+            args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            cwd=self._project_dir,
+        )
+
+        self._reader_thread = threading.Thread(target=self._read_stdout, daemon=True)
+        self._reader_thread.start()
+
+    def send_answer(self, text: str) -> None:
+        """Send an answer back to the interview subprocess."""
+        if self._proc and self._proc.stdin and not self._proc.stdin.closed:
+            msg = json.dumps({"type": "answer", "text": text})
+            self._proc.stdin.write(msg + "\n")
+            self._proc.stdin.flush()
+
+    def abort(self) -> None:
+        """Send abort and kill the subprocess."""
+        if self._proc and self._proc.stdin and not self._proc.stdin.closed:
+            msg = json.dumps({"type": "abort"})
+            try:
+                self._proc.stdin.write(msg + "\n")
+                self._proc.stdin.flush()
+            except (OSError, BrokenPipeError):
+                pass
+        if self._proc and self._proc.poll() is None:
+            self._proc.kill()
+
+    def _read_stdout(self) -> None:
+        """Read JSON messages from stdout (runs in thread)."""
+        assert self._proc and self._proc.stdout
+        try:
+            for line in self._proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    msg = json.loads(line)
+                    self._queue.put(msg)
+                except json.JSONDecodeError:
+                    pass
+        except (OSError, ValueError):
+            pass
+
+        # Subprocess exited
+        code = self._proc.wait() if self._proc else None
+        if code != 0:
+            self._queue.put({"type": "error", "message": f"Interview process exited with code {code}"})
+
+
+# ---------------------------------------------------------------------------
 # Metric card widget
 # ---------------------------------------------------------------------------
 
@@ -276,12 +377,35 @@ class AutoagentApp(App[int]):
         height: auto;
         max-height: 16;
     }
+
+    #interview-bar {
+        height: auto;
+        max-height: 5;
+        padding: 0 1;
+        display: none;
+    }
+
+    #interview-bar.visible {
+        display: block;
+    }
+
+    #interview-question {
+        color: $text;
+        text-style: bold;
+        padding: 0 1;
+    }
+
+    #interview-input {
+        margin: 0 1;
+    }
     """
 
     BINDINGS = [  # noqa: RUF012
         Binding("q", "quit_app", "Quit", show=True, priority=True),
         Binding("r", "start_run", "Run", show=True),
         Binding("s", "stop_run", "Stop", show=True),
+        Binding("n", "start_interview", "New", show=True),
+        Binding("escape", "cancel_interview", "Cancel", show=False),
     ]
 
     TITLE = "autoagent"
@@ -316,6 +440,10 @@ class AutoagentApp(App[int]):
         self._loop_done = False
         self._subprocess: LoopSubprocess | None = None
         self._project_initialized = False
+        # Interview state
+        self._interview_proc: InterviewSubprocess | None = None
+        self._interview_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+        self._interviewing = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -342,6 +470,11 @@ class AutoagentApp(App[int]):
                 yield Label("📋 Event Log")
                 yield RichLog(id="event-log", highlight=True, markup=True)
 
+        # Interview input bar (hidden by default)
+        with Vertical(id="interview-bar"):
+            yield Label("", id="interview-question")
+            yield Input(placeholder="Type your answer and press Enter…", id="interview-input")
+
         yield Footer()
 
     def on_mount(self) -> None:
@@ -351,6 +484,7 @@ class AutoagentApp(App[int]):
 
         # Poll event queue (for subprocess events)
         self.set_interval(0.15, self._poll_events)
+        self.set_interval(0.15, self._poll_interview)
 
         log = self.query_one("#event-log", RichLog)
 
@@ -681,6 +815,8 @@ class AutoagentApp(App[int]):
         """Quit. Stops subprocess if running."""
         if self._subprocess and self._subprocess.running:
             self._subprocess.stop()
+        if self._interview_proc and self._interview_proc.running:
+            self._interview_proc.abort()
         self.exit(0)
 
     def action_start_run(self) -> None:
@@ -690,6 +826,130 @@ class AutoagentApp(App[int]):
     def action_stop_run(self) -> None:
         """Stop the running optimization."""
         self._stop_subprocess()
+
+    def action_start_interview(self) -> None:
+        """Start the project interview."""
+        self._start_interview()
+
+    def action_cancel_interview(self) -> None:
+        """Cancel the interview if running."""
+        if not self._interviewing:
+            return
+        if self._interview_proc:
+            self._interview_proc.abort()
+        self._interviewing = False
+        self._hide_interview_input()
+        self.query_one("#event-log", RichLog).write("[yellow]Interview cancelled.[/]")
+
+    # -- Interview ---------------------------------------------------------
+
+    def _start_interview(self) -> None:
+        """Launch the interview subprocess and show the input bar."""
+        if self._interviewing:
+            self.query_one("#event-log", RichLog).write("[dim]Interview already in progress.[/]")
+            return
+
+        if self._subprocess and self._subprocess.running:
+            self.query_one("#event-log", RichLog).write(
+                "[yellow]Cannot start interview while optimization is running.[/]"
+            )
+            return
+
+        log = self.query_one("#event-log", RichLog)
+        log.write("[bold cyan]📝 Starting project interview…[/]")
+
+        self._interview_proc = InterviewSubprocess(self._project_dir, self._interview_queue)
+        self._interview_proc.start()
+        self._interviewing = True
+
+    def _show_interview_input(self, question: str) -> None:
+        """Show the interview bar with a question."""
+        bar = self.query_one("#interview-bar")
+        bar.add_class("visible")
+        self.query_one("#interview-question", Label).update(question)
+        inp = self.query_one("#interview-input", Input)
+        inp.value = ""
+        inp.focus()
+
+    def _hide_interview_input(self) -> None:
+        """Hide the interview bar."""
+        bar = self.query_one("#interview-bar")
+        bar.remove_class("visible")
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter press in the interview input."""
+        if not self._interviewing or not self._interview_proc:
+            return
+
+        if event.input.id != "interview-input":
+            return
+
+        answer = event.value.strip()
+        event.input.value = ""
+
+        log = self.query_one("#event-log", RichLog)
+        log.write(f"  [dim]> {answer}[/]")
+
+        self._interview_proc.send_answer(answer)
+        self._hide_interview_input()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Suppress keybind actions while typing in the input."""
+        # Textual handles this via focus — Input captures keys when focused
+
+    def _poll_interview(self) -> None:
+        """Drain the interview message queue."""
+        if not self._interviewing:
+            return
+
+        drained = 0
+        while drained < 10:
+            try:
+                msg = self._interview_queue.get_nowait()
+            except queue.Empty:
+                break
+            drained += 1
+            self._handle_interview_msg(msg)
+
+    def _handle_interview_msg(self, msg: dict[str, Any]) -> None:
+        """Process a single interview protocol message."""
+        msg_type = msg.get("type", "")
+        log = self.query_one("#event-log", RichLog)
+
+        if msg_type == "prompt":
+            phase = msg.get("phase", "")
+            question = msg.get("question", "")
+            log.write(f"[cyan]  [{phase}][/] {question}")
+            self._show_interview_input(question)
+
+        elif msg_type == "confirm":
+            summary = msg.get("summary", "")
+            log.write("\n[bold cyan]--- Summary ---[/]")
+            for line in summary.split("\n"):
+                if line.strip():
+                    log.write(f"  {line}")
+            self._show_interview_input("Does this look correct? (yes/no)")
+
+        elif msg_type == "status":
+            message = msg.get("message", "")
+            if message:
+                log.write(f"[dim]{message}[/]")
+
+        elif msg_type == "complete":
+            log.write("[bold green]✅ Interview complete! Project configured.[/]")
+            self._interviewing = False
+            self._hide_interview_input()
+            # Reload project state
+            self._load_project_state()
+
+        elif msg_type == "error":
+            error = msg.get("message", "unknown error")
+            log.write(f"[bold red]❌ Interview error:[/] {error}")
+            self._interviewing = False
+            self._hide_interview_input()
+
+        else:
+            log.write(f"[dim]interview: {msg}[/]")
 
 
 # ---------------------------------------------------------------------------
