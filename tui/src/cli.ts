@@ -15,7 +15,7 @@ import {
   InteractiveMode,
   runPrintMode,
 } from '@gsd/pi-coding-agent';
-import { existsSync, readFileSync, readdirSync, mkdirSync, copyFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, copyFileSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { agentDir, sessionsDir, authFilePath, appRoot } from './app-paths.js';
@@ -41,10 +41,11 @@ function syncResources(): void {
   // Recursive copy
   function copyDirRecursive(src: string, dst: string): void {
     mkdirSync(dst, { recursive: true });
-    for (const entry of readdirSync(src, { withFileTypes: true })) {
-      const srcPath = join(src, entry.name);
-      const dstPath = join(dst, entry.name);
-      if (entry.isDirectory()) {
+    for (const name of readdirSync(src)) {
+      const srcPath = join(src, name);
+      const dstPath = join(dst, name);
+      const stat = statSync(srcPath);
+      if (stat.isDirectory()) {
         copyDirRecursive(srcPath, dstPath);
       } else {
         copyFileSync(srcPath, dstPath);
