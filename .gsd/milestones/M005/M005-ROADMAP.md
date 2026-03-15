@@ -55,7 +55,7 @@ This milestone is complete only when all are true:
   > After this: user runs `/autoagent run` in pi and sees a live dashboard overlay showing iteration progress, scores, decisions, cost, and elapsed time — all rendering from real Python subprocess JSONL output via spawn
 - [x] **S02: Interview Overlay with JSON Protocol** `risk:medium` `depends:[S01]`
   > After this: user runs `/autoagent new` in pi and completes the full 6-phase interview in a TUI overlay with native pi input/select dialogs, driven by bidirectional JSON protocol to the Python subprocess
-- [ ] **S03: Report, Status, Stop, and Final Assembly** `risk:low` `depends:[S01]`
+- [x] **S03: Report, Status, Stop, and Final Assembly** `risk:low` `depends:[S01]`
   > After this: user has the complete `/autoagent` experience — report overlay, status check, stop command, `Ctrl+Alt+A` shortcut, footer widget — all wired together and exercised end-to-end in pi
 
 ## Boundary Map

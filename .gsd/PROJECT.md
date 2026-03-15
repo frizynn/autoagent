@@ -10,13 +10,14 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 through M004 complete. The full user experience is implemented:
+M001 through M005 complete. The full user experience is implemented:
 - `autoagent new` runs a multi-turn LLM-driven interview that challenges vague input, collects goal/metrics/constraints/search space/benchmark/budget, and writes `config.json` + `context.md` to `.autoagent/`.
 - When no benchmark is provided, `BenchmarkGenerator` auto-generates `{input, expected}` JSON from the goal, validates for leakage and diversity, and writes `benchmark.json`.
 - `autoagent run` executes the optimization loop with safety gates (TLA+ → leakage → sandbox evaluation → Pareto keep/discard).
 - `autoagent report` generates a structured markdown report with score trajectory, top architectures, cost breakdown, and recommendations.
 - Full cold-start flow proven end-to-end with MockLLM: interview → benchmark generation → optimization loop → report.
-- 469 tests passing. 19 requirements validated, 5 active (M002 search intelligence scope).
+- Pi TUI extension at `.pi/extensions/autoagent/` provides: `/autoagent run` with live dashboard overlay, `/autoagent new` with interview overlay, `/autoagent report` with scrollable markdown viewer, `/autoagent stop` for graceful termination, `/autoagent status` with disk state reading, `Ctrl+Alt+A` shortcut, footer status widget, and tab completion.
+- 496 tests passing. 19 requirements validated, 5 active (M002 search intelligence scope).
 
 ## Architecture / Key Patterns
 
@@ -46,7 +47,7 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M002: Search Intelligence — Structural search, parameter optimization, exploration/exploitation, cold-start, archive compression
 - [x] M003: Safety & Verification — TLA+ verification, data leakage guardrail, Pareto evaluation, reward hacking defense, sandbox
 - [x] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting
-- [ ] M005: Pi TUI Extension — Interactive dashboard, live loop monitoring, interview overlay, reporting overlay via pi extension
+- [x] M005: Pi TUI Extension — Interactive dashboard, live loop monitoring, interview overlay, reporting overlay via pi extension
 
 ## Known Gaps
 
