@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
+from autoagent.benchmark import Benchmark
 from autoagent.cli import main
 from autoagent.meta_agent import ProposalResult
 from autoagent.state import STARTER_PIPELINE, StateManager
@@ -476,3 +478,130 @@ class TestNew:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "interrupted" in captured.err.lower()
+
+
+# ---------------------------------------------------------------------------
+# new — benchmark generation
+# ---------------------------------------------------------------------------
+
+
+# Valid JSON array that BenchmarkGenerator will parse from the mock LLM response
+_BENCHMARK_GEN_JSON = json.dumps([
+    {"input": "What is aspirin used for?", "expected": "pain relief", "id": "med_1"},
+    {"input": "Side effects of ibuprofen?", "expected": "stomach issues", "id": "med_2"},
+    {"input": "Dosage for acetaminophen?", "expected": "500-1000mg every 4-6 hours", "id": "med_3"},
+])
+
+
+class TestNewBenchmarkGen:
+    """Integration tests for benchmark generation in ``cmd_new``."""
+
+    def test_benchmark_gen_happy_path(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Interview + generation produces config.json and benchmark.json."""
+        from autoagent.interview import SequenceMockLLM
+
+        answers_iter = iter(_NEW_ANSWERS)
+        # SequenceMockLLM responses: interview probe, context synthesis,
+        # then benchmark generation (3rd call)
+        mock_llm = SequenceMockLLM([
+            "mock follow-up",
+            "# Generated Context\nProject context.",
+            _BENCHMARK_GEN_JSON,
+        ])
+
+        with (
+            patch("autoagent.cli.MockLLM", return_value=mock_llm),
+            patch("autoagent.cli.MetricsCollector"),
+            patch("builtins.input", side_effect=lambda prompt="": next(answers_iter, "")),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 0
+
+        captured = capsys.readouterr()
+        assert "Generated benchmark with 3 examples" in captured.out
+
+        # Config should reference the generated benchmark
+        sm = StateManager(tmp_path)
+        config = sm.read_config()
+        assert config.benchmark["dataset_path"] == "benchmark.json"
+        assert config.benchmark["scoring_function"] == "includes"
+
+        # benchmark.json should exist and be loadable
+        benchmark_path = tmp_path / ".autoagent" / "benchmark.json"
+        assert benchmark_path.is_file()
+
+        benchmark_data = json.loads(benchmark_path.read_text(encoding="utf-8"))
+        assert len(benchmark_data) == 3
+        assert all("input" in ex and "expected" in ex for ex in benchmark_data)
+
+    def test_benchmark_gen_failure_still_writes_config(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """When generation fails, config is still written without benchmark path."""
+        from autoagent.interview import SequenceMockLLM
+
+        answers_iter = iter(_NEW_ANSWERS)
+        # LLM returns invalid JSON for benchmark generation (and retry)
+        mock_llm = SequenceMockLLM([
+            "mock follow-up",
+            "# Generated Context\nProject context.",
+            "This is not valid JSON at all.",
+            "Still not valid JSON.",
+        ])
+
+        with (
+            patch("autoagent.cli.MockLLM", return_value=mock_llm),
+            patch("autoagent.cli.MetricsCollector"),
+            patch("builtins.input", side_effect=lambda prompt="": next(answers_iter, "")),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 0
+
+        captured = capsys.readouterr()
+        assert "benchmark generation failed" in captured.err
+
+        # Config still written, but no benchmark path
+        sm = StateManager(tmp_path)
+        config = sm.read_config()
+        assert config.benchmark.get("dataset_path", "") == ""
+        assert config.goal == "Optimize retrieval accuracy for medical Q&A"
+
+        # No benchmark.json file
+        benchmark_path = tmp_path / ".autoagent" / "benchmark.json"
+        assert not benchmark_path.exists()
+
+    def test_benchmark_gen_loadable_via_from_file(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Generated benchmark.json is loadable via Benchmark.from_file()."""
+        from autoagent.interview import SequenceMockLLM
+
+        answers_iter = iter(_NEW_ANSWERS)
+        mock_llm = SequenceMockLLM([
+            "mock follow-up",
+            "# Generated Context\nProject context.",
+            _BENCHMARK_GEN_JSON,
+        ])
+
+        with (
+            patch("autoagent.cli.MockLLM", return_value=mock_llm),
+            patch("autoagent.cli.MetricsCollector"),
+            patch("builtins.input", side_effect=lambda prompt="": next(answers_iter, "")),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 0
+
+        # Load via Benchmark.from_file — the real validation
+        benchmark_path = tmp_path / ".autoagent" / "benchmark.json"
+        benchmark = Benchmark.from_file(benchmark_path, scoring_function="includes")
+        assert len(benchmark.examples) == 3
+        assert benchmark.examples[0].input == "What is aspirin used for?"
+        assert benchmark.examples[0].expected == "pain relief"

@@ -8,11 +8,13 @@ managed by :class:`~autoagent.state.StateManager`.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from autoagent.archive import Archive
 from autoagent.benchmark import Benchmark
+from autoagent.benchmark_gen import BenchmarkGenerator, GenerationResult
 from autoagent.evaluation import Evaluator
 from autoagent.interview import InterviewOrchestrator, SequenceMockLLM
 from autoagent.loop import OptimizationLoop
@@ -100,15 +102,42 @@ def cmd_new(args: argparse.Namespace) -> int:
         )
         return 1
 
+    # Auto-generate benchmark if no dataset_path provided and goal is set
+    config = result.config
+    benchmark_cfg = config.benchmark
+    if not benchmark_cfg.get("dataset_path", "") and config.goal:
+        gen = BenchmarkGenerator(llm=llm, goal=config.goal)
+        gen_result = gen.generate()
+
+        if gen_result.success:
+            benchmark_path = sm.aa_dir / "benchmark.json"
+            with open(benchmark_path, "w", encoding="utf-8") as f:
+                json.dump(gen_result.examples, f, indent=2, ensure_ascii=False)
+
+            from dataclasses import replace
+            updated_benchmark = {**benchmark_cfg}
+            updated_benchmark["dataset_path"] = "benchmark.json"
+            updated_benchmark["scoring_function"] = gen_result.scoring_function
+            config = replace(config, benchmark=updated_benchmark)
+            print(
+                f"Generated benchmark with {len(gen_result.examples)} examples "
+                f"(scoring: {gen_result.scoring_function})"
+            )
+        else:
+            print(
+                f"Warning: benchmark generation failed: {gen_result.error}",
+                file=sys.stderr,
+            )
+
     # Write config and context to disk
-    sm.write_config(result.config)
+    sm.write_config(config)
     context_path = sm.aa_dir / "context.md"
     context_path.write_text(result.context, encoding="utf-8")
 
     # Print summary
-    goal = result.config.goal or "(not set)"
-    metric_count = len(result.config.metric_priorities)
-    constraint_count = len(result.config.constraints)
+    goal = config.goal or "(not set)"
+    metric_count = len(config.metric_priorities)
+    constraint_count = len(config.constraints)
     print(f"\nProject configured:")
     print(f"  Goal:        {goal}")
     print(f"  Metrics:     {metric_count}")

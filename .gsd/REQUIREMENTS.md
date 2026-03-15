@@ -86,13 +86,13 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ### R023 — Automatic Benchmark Generation
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: When user provides no benchmark, system analyzes goal + data to create evaluation dataset and scoring function, validated for leakage
 - Why it matters: Lowers barrier — user shouldn't need to hand-craft benchmarks for every goal
 - Source: user (implied)
 - Primary owning slice: M004/S02
 - Supporting slices: M003/S04
-- Validation: unmapped
+- Validation: validated — BenchmarkGenerator produces {input, expected} JSON via LLM with section-based prompt, three-stage JSON extraction (fenced → bare → bracket-scan), retry on parse failure (max 2). Validation pipeline: LeakageChecker against STARTER_PIPELINE, input diversity ≥80%, format round-trip through Benchmark.from_file(). Wired into cmd_new — auto-generates when no dataset_path provided, non-fatal on failure. Default scorer "includes". 24 unit tests + 3 CLI integration tests. Contract + integration proof in S02.
 - Notes: Generated benchmarks must pass same leakage checks as user-provided ones
 
 ### R024 — Exploration/Exploitation Balance
@@ -325,14 +325,14 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R020 | quality-attribute | validated | M003/S02 | none | validated (S02) |
 | R021 | compliance/security | validated | M003/S04 | none | validated (S04) |
 | R022 | operability | validated | M001/S03 | none | validated (S03+S05) |
-| R023 | core-capability | active | M004/S02 | M003/S04 | unmapped |
+| R023 | core-capability | validated | M004/S02 | M003/S04 | validated (S02) |
 | R024 | core-capability | active | M002/S04 | M002/S01 | unmapped |
 | R030 | anti-feature | out-of-scope | none | none | n/a |
 | R031 | anti-feature | out-of-scope | none | none | n/a |
 
 ## Coverage Summary
 
-- Active requirements: 6
+- Active requirements: 5
 - Mapped to slices: 24
-- Validated: 18
+- Validated: 19
 - Unmapped active requirements: 0

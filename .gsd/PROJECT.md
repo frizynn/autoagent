@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001, M002, and M003 complete. M004 S01 (Interview Orchestrator) complete — `autoagent new` runs a multi-turn LLM-driven interview that challenges vague input, collects goal/metrics/constraints/search space/benchmark/budget, and writes `config.json` + `context.md` to `.autoagent/`. Extended ProjectConfig with optional `search_space`, `constraints`, `metric_priorities` fields. 416 tests passing. 18 requirements validated (R001-R010, R014-R017, R019-R022).
+M001, M002, and M003 complete. M004 S01 (Interview Orchestrator) and S02 (Benchmark Generation) complete. `autoagent new` runs a multi-turn LLM-driven interview that challenges vague input, collects goal/metrics/constraints/search space/benchmark/budget, and writes `config.json` + `context.md` to `.autoagent/`. When no benchmark is provided, `BenchmarkGenerator` auto-generates `{input, expected}` JSON from the goal, validates for leakage and diversity, and writes `benchmark.json`. 443 tests passing. 19 requirements validated (R001-R010, R014-R017, R019-R023).
 
-Next: M004 S02 (Benchmark Generation).
+Next: M004 S03 (Reporting & End-to-End Assembly).
 
 ## Architecture / Key Patterns
 
