@@ -59,7 +59,7 @@ This milestone is complete only when all are true:
   > After this: the keep/discard decision uses Pareto dominance across (primary_score, latency, cost, complexity) instead of single-score comparison. Pipelines that game one metric at the expense of others are rejected. Incomparable pipelines resolved by preferring simpler code.
 - [x] **S03: Data Leakage Detection** `risk:medium` `depends:[]`
   > After this: every evaluation is preceded by a leakage check — exact train/test example overlap blocks the iteration, fuzzy n-gram overlap generates a warning. Proven with synthetic contaminated benchmarks in tests.
-- [ ] **S04: Sandbox Isolation & Final Assembly** `risk:medium` `depends:[S01,S02,S03]`
+- [x] **S04: Sandbox Isolation & Final Assembly** `risk:medium` `depends:[S01,S02,S03]`
   > After this: pipeline code executes inside a Docker container with restricted filesystem and filtered network access. When Docker is unavailable, execution falls back to direct mode with a warning. Final integrated verification: all four safety gates active in one loop run, each exercised and producing archive-visible results.
 
 ## Boundary Map

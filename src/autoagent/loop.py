@@ -38,6 +38,7 @@ from autoagent.summarizer import ArchiveSummarizer
 from autoagent.types import MetricsSnapshot
 from autoagent.verification import TLAVerifier, VerificationResult
 from autoagent.leakage import LeakageChecker
+from autoagent.sandbox import SandboxRunner
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,7 @@ class OptimizationLoop:
         summarizer_llm: LLMProtocol | None = None,
         tla_verifier: TLAVerifier | None = None,
         leakage_checker: LeakageChecker | None = None,
+        sandbox_runner: SandboxRunner | None = None,
     ) -> None:
         self.state_manager = state_manager
         self.archive = archive
@@ -118,9 +120,37 @@ class OptimizationLoop:
         self.summarizer_llm = summarizer_llm
         self.tla_verifier = tla_verifier
         self.leakage_checker = leakage_checker
+
+        # Sandbox runner — wire into evaluator when Docker is available
+        self._sandbox_used = False
+        self._sandbox_fallback_reason: str | None = None
+        if sandbox_runner is not None:
+            if sandbox_runner.available():
+                self.evaluator = Evaluator(runner=sandbox_runner)
+                self._sandbox_used = True
+                logger.info("Sandbox runner active — evaluator will use Docker isolation")
+            else:
+                reason = sandbox_runner._diagnose_unavailability()
+                self._sandbox_fallback_reason = reason
+                logger.warning(
+                    "Docker unavailable (%s) — evaluator will use direct PipelineRunner",
+                    reason,
+                )
+
         # Cached summary state
         self._cached_summary: str = ""
         self._summary_archive_len: int = 0
+
+    def _sandbox_execution_dict(self) -> dict[str, Any] | None:
+        """Build sandbox_execution metadata for archive entries."""
+        if not self._sandbox_used and self._sandbox_fallback_reason is None:
+            return None  # No sandbox_runner was provided
+        return {
+            "sandbox_used": self._sandbox_used,
+            "container_id": None,  # Per-iteration container IDs not tracked at loop level
+            "network_policy": "none" if self._sandbox_used else None,
+            "fallback_reason": self._sandbox_fallback_reason,
+        }
 
     def run(self) -> ProjectState:
         """Execute the optimization loop.
@@ -324,6 +354,7 @@ class OptimizationLoop:
                             int(best_iteration_id) if best_iteration_id else None
                         ),
                         mutation_type="parametric",
+                        sandbox_execution=self._sandbox_execution_dict(),
                     )
                     state = replace(
                         state,
@@ -372,6 +403,7 @@ class OptimizationLoop:
                             parent_iteration_id=parent_id,
                             mutation_type="parametric",
                             tla_verification=tla_verification,
+                            sandbox_execution=self._sandbox_execution_dict(),
                         )
                         # Restore previous best on disk
                         pipeline_path.write_text(
@@ -433,6 +465,7 @@ class OptimizationLoop:
                             mutation_type="parametric",
                             tla_verification=tla_verification,
                             leakage_check=leakage_check,
+                            sandbox_execution=self._sandbox_execution_dict(),
                         )
                         # Restore previous best on disk
                         pipeline_path.write_text(
@@ -529,6 +562,7 @@ class OptimizationLoop:
                         "candidate_metrics": pareto_result.candidate_metrics,
                         "best_metrics": pareto_result.best_metrics,
                     },
+                    sandbox_execution=self._sandbox_execution_dict(),
                 )
 
                 if decision == "keep":

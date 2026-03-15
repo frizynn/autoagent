@@ -86,13 +86,13 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ### R021 — Sandbox Isolation for Pipeline Execution
 - Class: compliance/security
-- Status: active
+- Status: validated
 - Description: Pipeline execution runs in isolated environment — model-generated code cannot access host filesystem, network, or state outside sandbox
 - Why it matters: Executing untrusted model-generated code is inherently risky (ADAS safety warning)
 - Source: research (ADAS)
 - Primary owning slice: M003/S04
 - Supporting slices: none
-- Validation: unmapped
+- Validation: validated — SandboxRunner executes pipeline code inside Docker container with --network=none and docker cp source transfer. Container-side harness avoids package install. available() checks binary + daemon. Graceful fallback to PipelineRunner when Docker unavailable (D043). SandboxResult carries fallback_reason and error diagnostics. sandbox_execution field in ArchiveEntry for post-run inspection. 18 unit tests + 4 loop integration + 2 capstone. Contract-level proof in S04.
 - Notes: Critical for unattended overnight runs
 
 ### R023 — Automatic Benchmark Generation
@@ -323,7 +323,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R018 | integration | active | M001/S01 | none | unmapped |
 | R019 | primary-user-loop | validated | M001/S06 | M004/S04 | validated (S05+S06) |
 | R020 | quality-attribute | validated | M003/S02 | none | validated (S02) |
-| R021 | compliance/security | active | M003/S04 | none | unmapped |
+| R021 | compliance/security | validated | M003/S04 | none | validated (S04) |
 | R022 | operability | validated | M001/S03 | none | validated (S03+S05) |
 | R023 | core-capability | active | M004/S02 | M003/S04 | unmapped |
 | R024 | core-capability | active | M002/S04 | M002/S01 | unmapped |
@@ -332,7 +332,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 8
+- Active requirements: 7
 - Mapped to slices: 24
-- Validated: 16
+- Validated: 17
 - Unmapped active requirements: 0

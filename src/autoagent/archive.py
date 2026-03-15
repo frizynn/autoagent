@@ -100,6 +100,7 @@ class ArchiveEntry:
     tla_verification: dict[str, Any] | None = None
     pareto_evaluation: dict[str, Any] | None = None
     leakage_check: dict[str, Any] | None = None
+    sandbox_execution: dict[str, Any] | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Serialize to a plain dict suitable for JSON encoding."""
@@ -125,6 +126,7 @@ class ArchiveEntry:
             tla_verification=d.get("tla_verification"),
             pareto_evaluation=d.get("pareto_evaluation"),
             leakage_check=d.get("leakage_check"),
+            sandbox_execution=d.get("sandbox_execution"),
         )
 
 
@@ -179,6 +181,7 @@ class Archive:
         tla_verification: dict[str, Any] | None = None,
         pareto_evaluation: dict[str, Any] | None = None,
         leakage_check: dict[str, Any] | None = None,
+        sandbox_execution: dict[str, Any] | None = None,
     ) -> ArchiveEntry:
         """Archive one iteration atomically.
 
@@ -249,6 +252,7 @@ class Archive:
             tla_verification=tla_verification,
             pareto_evaluation=pareto_evaluation,
             leakage_check=leakage_check,
+            sandbox_execution=sandbox_execution,
         )
 
         # Write entry JSON atomically
