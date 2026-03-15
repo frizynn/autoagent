@@ -91,7 +91,7 @@ Consumes: nothing (first slice)
 Produces:
 - `src/autoagent/cli.py` → `init`, `run`, `status` command handlers
 - `src/autoagent/state.py` → `StateManager` that reads/writes `.autoagent/state.json`, handles lock files
-- `.autoagent/` directory convention: `state.json`, `config.yaml`, `archive/`, `pipeline.py`
+- `.autoagent/` directory convention: `state.json`, `config.json`, `archive/`, `pipeline.py`
 
 Consumes: nothing (parallel first slice)
 
