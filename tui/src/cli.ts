@@ -133,12 +133,13 @@ if (!cliFlags.print && shouldRunOnboarding(authStorage)) {
 const modelRegistry = new ModelRegistry(authStorage);
 const settingsManager = SettingsManager.create(agentDir);
 
-// Auto-select a model if none configured
+// Auto-select a model if none configured — default to Claude Opus 4
 const configuredModel = settingsManager.getDefaultModel();
 if (!configuredModel) {
   const available = modelRegistry.getAvailable();
   const preferred =
-    available.find((m: any) => m.provider === 'anthropic' && m.id.includes('sonnet')) ||
+    available.find((m: any) => m.provider === 'anthropic' && m.id === 'claude-opus-4-6') ||
+    available.find((m: any) => m.provider === 'anthropic' && m.id.includes('opus')) ||
     available.find((m: any) => m.provider === 'anthropic') ||
     available.find((m: any) => m.provider === 'openai') ||
     available[0];
