@@ -58,7 +58,7 @@ This milestone is complete only when all are true:
 - [x] **S02: CLI Scaffold & Disk State** `risk:medium` `depends:[]`
   > After this: `autoagent init` creates .autoagent/ project structure with state files; `autoagent status` reads and displays current state from disk. Proven by CLI commands producing correct filesystem output.
 
-- [ ] **S03: Evaluation & Benchmark** `risk:medium` `depends:[S01]`
+- [x] **S03: Evaluation & Benchmark** `risk:medium` `depends:[S01]`
   > After this: a pipeline runs against a provided benchmark dataset with a scoring function; multi-metric results (primary score + latency + tokens + cost) are captured in a structured evaluation result. Proven by evaluating a toy pipeline against a toy benchmark.
 
 - [ ] **S04: Monotonic Archive** `risk:low` `depends:[S01,S03]`

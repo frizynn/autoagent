@@ -36,7 +36,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: M001/S03
-- Validation: unmapped
+- Validation: partial — primitives implemented and tested in S01; metrics captured and aggregated per-example in evaluation (S03). Full validation when used in live optimization loop (S05).
 - Notes: Provider-agnostic — must work with OpenAI, Anthropic, local models, any retrieval backend
 
 ### R004 — Monotonic Archive
@@ -91,7 +91,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: M004/S02
-- Validation: unmapped
+- Validation: partial — Benchmark loader, Evaluator, and EvaluationResult implemented in S03 with 29 tests. Full validation when integrated into optimization loop (S05).
 - Notes: If user provides no benchmark, system should create one (see R023)
 
 ### R009 — Data Leakage Guardrail
@@ -245,7 +245,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: research (autoresearch)
 - Primary owning slice: M001/S03
 - Supporting slices: none
-- Validation: unmapped
+- Validation: partial — per-example timeout via ThreadPoolExecutor implemented in S03, timeout → score 0.0 with error="timeout". Full validation when wired into optimization loop (S05).
 - Notes: Timeout → treat as failure, discard, move on
 
 ### R023 — Automatic Benchmark Generation
@@ -308,12 +308,12 @@ Use it to track what is actively in scope, what has been validated by completed 
 |---|---|---|---|---|---|
 | R001 | core-capability | active | M001/S05 | M001/S06 | unmapped |
 | R002 | constraint | active | M001/S01 | M001/S05 | unmapped |
-| R003 | core-capability | active | M001/S01 | M001/S03 | unmapped |
+| R003 | core-capability | active | M001/S01 | M001/S03 | partial (S01, S03) |
 | R004 | core-capability | active | M001/S04 | M002/S01 | unmapped |
 | R005 | continuity | active | M001/S06 | M001/S02 | unmapped |
 | R006 | core-capability | active | M001/S02 | M004/S05 | unmapped |
 | R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |
-| R008 | core-capability | active | M001/S03 | M004/S02 | unmapped |
+| R008 | core-capability | active | M001/S03 | M004/S02 | partial (S03) |
 | R009 | quality-attribute | active | M003/S04 | M001/S03 | unmapped |
 | R010 | quality-attribute | active | M003/S05 | M001/S03 | unmapped |
 | R011 | core-capability | active | M002/S02 | M002/S04 | unmapped |
@@ -327,7 +327,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R019 | primary-user-loop | active | M001/S06 | M004/S04 | unmapped |
 | R020 | quality-attribute | active | M003/S05 | none | unmapped |
 | R021 | compliance/security | active | M003/S06 | none | unmapped |
-| R022 | operability | active | M001/S03 | none | unmapped |
+| R022 | operability | active | M001/S03 | none | partial (S03) |
 | R023 | core-capability | active | M004/S02 | M003/S04 | unmapped |
 | R024 | core-capability | active | M002/S04 | M002/S01 | unmapped |
 | R030 | anti-feature | out-of-scope | none | none | n/a |
