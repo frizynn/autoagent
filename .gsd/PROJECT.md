@@ -10,13 +10,13 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 through M005 complete. The full user experience is implemented:
+M001 through M005 complete. The full user experience is implemented, including a pi TUI extension:
 - `autoagent new` runs a multi-turn LLM-driven interview that challenges vague input, collects goal/metrics/constraints/search space/benchmark/budget, and writes `config.json` + `context.md` to `.autoagent/`.
 - When no benchmark is provided, `BenchmarkGenerator` auto-generates `{input, expected}` JSON from the goal, validates for leakage and diversity, and writes `benchmark.json`.
 - `autoagent run` executes the optimization loop with safety gates (TLA+ → leakage → sandbox evaluation → Pareto keep/discard).
 - `autoagent report` generates a structured markdown report with score trajectory, top architectures, cost breakdown, and recommendations.
 - Full cold-start flow proven end-to-end with MockLLM: interview → benchmark generation → optimization loop → report.
-- Pi TUI extension at `.pi/extensions/autoagent/` provides: `/autoagent run` with live dashboard overlay, `/autoagent new` with interview overlay, `/autoagent report` with scrollable markdown viewer, `/autoagent stop` for graceful termination, `/autoagent status` with disk state reading, `Ctrl+Alt+A` shortcut, footer status widget, and tab completion.
+- Pi TUI extension at `.pi/extensions/autoagent/` (7 files, 1222 LOC TypeScript) provides: `/autoagent run` with live dashboard overlay streaming JSONL from Python subprocess, `/autoagent new` with interview overlay via bidirectional JSON protocol, `/autoagent report` with scrollable markdown viewer, `/autoagent stop` for graceful SIGTERM/SIGKILL termination, `/autoagent status` with disk state reading, `Ctrl+Alt+A` shortcut, footer status widget with state icons, and tab completion.
 - 496 tests passing. 19 requirements validated, 5 active (M002 search intelligence scope).
 
 ## Architecture / Key Patterns
@@ -35,7 +35,10 @@ M001 through M005 complete. The full user experience is implemented:
 - **Graceful degradation** — safety gates skip with warnings when Java/Docker unavailable
 - **Multi-turn interview** — LLM-driven with vague-input detection and follow-up probes
 - **Automatic benchmark generation** — LLM-generated {input, expected} with leakage + diversity validation
-- **Composable report sections** — independently callable functions for targeted inspection
+- **Pi TUI extension** at `.pi/extensions/autoagent/` — 7 TypeScript files loaded by pi's jiti loader
+- **JSONL streaming protocol** (`--jsonl`) for live dashboard, **JSON request-response protocol** (`--json`) for interview
+- **SubprocessManager singleton** with bounded event buffer, SIGTERM/SIGKILL lifecycle, subscriber pattern
+- **Overlay patterns** — live-updating (dashboard), sequential dialogs (interview), static markdown (report)
 
 ## Capability Contract
 
