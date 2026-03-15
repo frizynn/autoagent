@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 complete. M002 S01 (Archive Compression), S02 (Structural Search & Component Vocabulary), and S03 (Strategy Selection & Parameter Optimization) complete — meta-agent prompt now includes component vocabulary, archive summaries past threshold, and graduated strategy signals based on stagnation detection. Sliding-window analysis of plateau length, score variance, and structural diversity drives exploration/exploitation balance. Mutation type tracking on every archive entry. 250 tests passing. 11 requirements validated (R001-R006, R008, R016, R017, R019, R022). R012, R013, R024 advanced.
+M001 and M002 complete. The full search intelligence stack is operational: component vocabulary (architectural patterns like RAG, CAG, debate, reflexion, ensemble, reranking), archive compression (LLM-generated structured summaries at scale), strategy selection (sliding-window stagnation detection with graduated explore/exploit signals), and cold-start pipeline generation (LLM generates initial pipeline from goal + benchmark + vocabulary when no custom pipeline exists). 267 tests passing. 12 requirements validated (R001-R006, R008, R015, R016, R017, R019, R022).
 
-Next: M002 S04 (Cold-Start Pipeline Generation) — last slice in M002.
+Next: M003 (Safety & Verification).
 
 ## Architecture / Key Patterns
 
@@ -34,6 +34,6 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 ## Milestone Sequence
 
 - [x] M001: Core Loop & Infrastructure — Pipeline execution, CLI, archive, the optimization loop, budget, crash recovery
-- [ ] M002: Search Intelligence — Structural search, parameter optimization, exploration/exploitation, cold-start, archive compression
+- [x] M002: Search Intelligence — Structural search, parameter optimization, exploration/exploitation, cold-start, archive compression
 - [ ] M003: Safety & Verification — TLA+ verification, data leakage guardrail, Pareto evaluation, reward hacking defense, sandbox
 - [ ] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting

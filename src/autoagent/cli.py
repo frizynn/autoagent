@@ -17,7 +17,7 @@ from autoagent.evaluation import Evaluator
 from autoagent.loop import OptimizationLoop
 from autoagent.meta_agent import MetaAgent
 from autoagent.primitives import MetricsCollector, MockLLM, PrimitivesContext, MockRetriever
-from autoagent.state import LockError, StateManager
+from autoagent.state import STARTER_PIPELINE, LockError, StateManager
 
 
 def _resolve_project_dir(args: argparse.Namespace) -> Path:
@@ -123,6 +123,28 @@ def cmd_run(args: argparse.Namespace) -> int:
     collector = MetricsCollector()
     llm = MockLLM(collector=collector)
     meta_agent = MetaAgent(llm=llm, goal=goal)
+
+    # -- Cold-start detection -------------------------------------------------
+    current_source = sm.pipeline_path.read_text(encoding="utf-8")
+    if current_source == STARTER_PIPELINE:
+        print("Cold-start: generating initial pipeline from benchmark…")
+        benchmark_desc = benchmark.describe()
+        result = meta_agent.generate_initial(benchmark_desc)
+        if result.success:
+            sm.pipeline_path.write_text(result.proposed_source, encoding="utf-8")
+            print("Cold-start: initial pipeline generated successfully.")
+        else:
+            print(f"Cold-start: first attempt failed ({result.error}), retrying…")
+            result = meta_agent.generate_initial(benchmark_desc)
+            if result.success:
+                sm.pipeline_path.write_text(result.proposed_source, encoding="utf-8")
+                print("Cold-start: initial pipeline generated on retry.")
+            else:
+                print(
+                    f"Warning: cold-start generation failed after retry "
+                    f"({result.error}). Continuing with starter pipeline.",
+                    file=sys.stderr,
+                )
 
     def primitives_factory() -> PrimitivesContext:
         c = MetricsCollector()

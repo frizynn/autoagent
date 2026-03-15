@@ -83,17 +83,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Validation: unmapped
 - Notes: Universal gate (all pipelines, not just concurrent). Genefication pattern: LLM drafts spec → TLC verifies → iterate.
 
-### R015 — Cold-Start Pipeline Generation
-- Class: core-capability
-- Status: active
-- Description: Given only goal + benchmark data (no existing pipeline), generate initial `pipeline.py` and begin optimizing from scratch
-- Why it matters: Lowers barrier to entry — user doesn't need to write the first pipeline
-- Source: user
-- Primary owning slice: M002/S05
-- Supporting slices: M004/S01
-- Validation: unmapped
-- Notes: Generated pipeline must use instrumented primitives
-
 
 ### R018 — Provider-Agnostic Primitives
 - Class: integration
@@ -271,6 +260,17 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Validation: validated — ArchiveSummarizer produces structured summaries with 4 sections (Top-K Results, Failure Clusters, Unexplored Regions, Score Trends) from 50+ entries within ~3K token budget. OptimizationLoop switches from raw entries to summaries past configurable threshold. Compression cost tracked in budget. Graceful fallback on failure. 25 tests (17 unit + 8 integration). Drill-down capability deferred.
 - Notes: Like GSD-2's summary compression for downstream tasks
 
+### R015 — Cold-Start Pipeline Generation
+- Class: core-capability
+- Status: validated
+- Description: Given only goal + benchmark data (no existing pipeline), generate initial `pipeline.py` and begin optimizing from scratch
+- Why it matters: Lowers barrier to entry — user doesn't need to write the first pipeline
+- Source: user
+- Primary owning slice: M002/S04
+- Supporting slices: M004/S01
+- Validation: validated — Benchmark.describe() produces compact benchmark description. MetaAgent.generate_initial() generates pipeline via LLM using goal + component vocabulary + benchmark description, validates with _extract_source() → _validate_source(). cmd_run() detects starter template, triggers cold-start with retry + fallback. 17 tests (6 benchmark, 7 generation, 4 CLI integration). 267 total tests passing.
+- Notes: Generated pipeline must use instrumented primitives
+
 ## Deferred
 
 (none yet)
@@ -317,7 +317,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R012 | core-capability | active | M002/S03 | M002/S04 | unmapped |
 | R013 | core-capability | active | M002/S04 | M002/S01 | unmapped |
 | R014 | quality-attribute | active | M003/S01 | M003/S02, M003/S03 | unmapped |
-| R015 | core-capability | active | M002/S05 | M004/S01 | unmapped |
+| R015 | core-capability | validated | M002/S04 | M004/S01 | validated (S04) |
 | R016 | continuity | validated | M002/S01 | M001/S04 | validated (S01) |
 | R017 | operability | validated | M001/S06 | M004/S04 | validated (S06) |
 | R018 | integration | active | M001/S01 | none | unmapped |
@@ -332,7 +332,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 13
+- Active requirements: 12
 - Mapped to slices: 24
-- Validated: 11
+- Validated: 12
 - Unmapped active requirements: 0

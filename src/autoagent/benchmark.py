@@ -77,6 +77,33 @@ class Benchmark:
         self.source_path = source_path
         self.scoring_function_name = scoring_function_name
 
+    def describe(self, max_examples: int = 3) -> str:
+        """Produce a compact benchmark description for LLM consumption.
+
+        Samples up to *max_examples* from the dataset, formats each as an
+        input/expected pair, and includes the total example count and scoring
+        function name.  Targets ~500 tokens (~2K chars).
+        """
+        lines: list[str] = []
+        lines.append(f"Benchmark: {len(self.examples)} examples, scored by `{self.scoring_function_name}`")
+        lines.append("")
+
+        sample_count = min(max_examples, len(self.examples))
+        sampled = self.examples[:sample_count]
+
+        lines.append(f"Sample examples ({sample_count} of {len(self.examples)}):")
+        for ex in sampled:
+            input_repr = json.dumps(ex.input) if isinstance(ex.input, (dict, list)) else str(ex.input)
+            expected_repr = json.dumps(ex.expected) if isinstance(ex.expected, (dict, list)) else str(ex.expected)
+            lines.append(f"  - Input: {input_repr}")
+            lines.append(f"    Expected: {expected_repr}")
+
+        lines.append("")
+        lines.append("Your pipeline's `run(input_data, primitives=None)` receives each input as `input_data`.")
+        lines.append("The scorer compares your output against the expected value.")
+
+        return "\n".join(lines)
+
     @classmethod
     def from_file(
         cls,

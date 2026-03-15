@@ -5,10 +5,13 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from autoagent.cli import main
+from autoagent.meta_agent import ProposalResult
+from autoagent.state import STARTER_PIPELINE
 
 
 # ---------------------------------------------------------------------------
@@ -162,3 +165,161 @@ class TestMainDirect:
             main(["--project-dir", str(tmp_path), "init"])
         assert exc_info.value.code == 0
         assert (tmp_path / ".autoagent" / "state.json").is_file()
+
+
+# ---------------------------------------------------------------------------
+# Cold-start pipeline generation
+# ---------------------------------------------------------------------------
+
+VALID_PIPELINE_SOURCE = '''\
+def run(input_data, primitives=None):
+    """Generated pipeline."""
+    return {"answer": str(input_data)}
+'''
+
+
+def _init_project_with_benchmark(tmp_path: Path) -> Path:
+    """Initialize a project and add a benchmark dataset + config."""
+    import json
+    from autoagent.state import StateManager
+
+    sm = StateManager(tmp_path)
+    sm.init_project(goal="Solve the benchmark")
+
+    # Write a tiny benchmark file
+    dataset = tmp_path / "bench.json"
+    dataset.write_text(
+        json.dumps([
+            {"input": "hello", "expected": "hello"},
+        ]),
+        encoding="utf-8",
+    )
+
+    # Update config to point at it
+    config = sm.read_config()
+    from dataclasses import replace
+    config = replace(config, benchmark={
+        "dataset_path": "bench.json",
+        "scoring_function": "exact_match",
+    })
+    sm.write_config(config)
+    return tmp_path
+
+
+class TestColdStart:
+    """Tests for the cold-start pipeline generation path in cmd_run()."""
+
+    def test_cold_start_triggered_and_rewrites_pipeline(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """When pipeline matches STARTER_PIPELINE, cold-start generates a new one."""
+        _init_project_with_benchmark(tmp_path)
+        success_result = ProposalResult(
+            proposed_source=VALID_PIPELINE_SOURCE,
+            rationale="Initial generation",
+            cost_usd=0.01,
+            success=True,
+        )
+        with patch("autoagent.cli.MetaAgent") as MockMACls:
+            instance = MockMACls.return_value
+            instance.generate_initial.return_value = success_result
+            with patch("autoagent.cli.OptimizationLoop") as MockLoop:
+                from autoagent.state import ProjectState
+                MockLoop.return_value.run.return_value = ProjectState(
+                    phase="completed", current_iteration=1
+                )
+                with pytest.raises(SystemExit) as exc_info:
+                    main(["--project-dir", str(tmp_path), "run"])
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "Cold-start" in captured.out
+        assert "generated successfully" in captured.out
+        # Pipeline file was rewritten
+        pipeline_content = (tmp_path / ".autoagent" / "pipeline.py").read_text()
+        assert pipeline_content == VALID_PIPELINE_SOURCE
+
+    def test_cold_start_skipped_when_pipeline_customized(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """When pipeline has been edited, cold-start is skipped entirely."""
+        _init_project_with_benchmark(tmp_path)
+        # Customize the pipeline
+        pipeline_path = tmp_path / ".autoagent" / "pipeline.py"
+        pipeline_path.write_text(VALID_PIPELINE_SOURCE, encoding="utf-8")
+
+        with patch("autoagent.cli.MetaAgent") as MockMACls:
+            instance = MockMACls.return_value
+            with patch("autoagent.cli.OptimizationLoop") as MockLoop:
+                from autoagent.state import ProjectState
+                MockLoop.return_value.run.return_value = ProjectState(
+                    phase="completed", current_iteration=1
+                )
+                with pytest.raises(SystemExit) as exc_info:
+                    main(["--project-dir", str(tmp_path), "run"])
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "Cold-start" not in captured.out
+        # generate_initial should never have been called
+        instance.generate_initial.assert_not_called()
+
+    def test_cold_start_failure_retries_then_continues(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Two failures log warning and continue with starter pipeline."""
+        _init_project_with_benchmark(tmp_path)
+        fail_result = ProposalResult(
+            success=False,
+            error="validation: no run() function",
+            cost_usd=0.005,
+        )
+        with patch("autoagent.cli.MetaAgent") as MockMACls:
+            instance = MockMACls.return_value
+            instance.generate_initial.return_value = fail_result
+            with patch("autoagent.cli.OptimizationLoop") as MockLoop:
+                from autoagent.state import ProjectState
+                MockLoop.return_value.run.return_value = ProjectState(
+                    phase="completed", current_iteration=1
+                )
+                with pytest.raises(SystemExit) as exc_info:
+                    main(["--project-dir", str(tmp_path), "run"])
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "retrying" in captured.out
+        assert "failed after retry" in captured.err
+        # Pipeline should still be starter
+        pipeline_content = (tmp_path / ".autoagent" / "pipeline.py").read_text()
+        assert pipeline_content == STARTER_PIPELINE
+        # generate_initial called exactly twice (initial + retry)
+        assert instance.generate_initial.call_count == 2
+
+    def test_cold_start_passes_benchmark_description(
+        self, tmp_path: Path
+    ) -> None:
+        """generate_initial receives the benchmark description string."""
+        _init_project_with_benchmark(tmp_path)
+        success_result = ProposalResult(
+            proposed_source=VALID_PIPELINE_SOURCE,
+            rationale="Initial",
+            cost_usd=0.01,
+            success=True,
+        )
+        with patch("autoagent.cli.MetaAgent") as MockMACls:
+            instance = MockMACls.return_value
+            instance.generate_initial.return_value = success_result
+            with patch("autoagent.cli.OptimizationLoop") as MockLoop:
+                from autoagent.state import ProjectState
+                MockLoop.return_value.run.return_value = ProjectState(
+                    phase="completed", current_iteration=1
+                )
+                with pytest.raises(SystemExit):
+                    main(["--project-dir", str(tmp_path), "run"])
+
+        # Verify generate_initial was called with a string (benchmark description)
+        instance.generate_initial.assert_called_once()
+        args = instance.generate_initial.call_args
+        benchmark_desc = args[0][0]
+        assert isinstance(benchmark_desc, str)
+        assert len(benchmark_desc) > 0

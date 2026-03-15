@@ -355,6 +355,106 @@ class MetaAgent:
 
     # -- propose -----------------------------------------------------------
 
+    def _build_cold_start_prompt(self, benchmark_description: str) -> str:
+        """Build a prompt for from-scratch pipeline generation."""
+        sections: list[str] = []
+
+        # System instructions — cold-start specific
+        sections.append(
+            "You are an expert Python developer creating a data pipeline from scratch.\n"
+            "Your task: given an optimization goal and benchmark description, write a "
+            "complete pipeline module that will be iteratively optimized.\n\n"
+            "RULES:\n"
+            "1. Output a COMPLETE Python module — not a diff, not a fragment.\n"
+            "2. The module MUST define: def run(input_data, primitives=None)\n"
+            "3. Wrap your code in a single ```python ... ``` block.\n"
+            "4. After the code block, briefly explain your design choices (1-3 sentences).\n"
+            "5. Use `primitives.llm.complete()` for all LLM calls — never import providers directly.\n"
+            "6. Use `primitives.retriever.retrieve()` if retrieval is appropriate.\n"
+            "7. Focus on a solid starting point — it will be refined in later iterations."
+        )
+
+        # Goal
+        sections.append(f"## Goal\n{self.goal}")
+
+        # Component vocabulary
+        sections.append(f"## Component Vocabulary\n{build_component_vocabulary()}")
+
+        # Benchmark
+        if benchmark_description:
+            sections.append(f"## Benchmark\n{benchmark_description}")
+
+        # Concrete example
+        sections.append(
+            "## Example Pipeline\n"
+            "Here is a minimal valid pipeline for reference:\n"
+            "```python\n"
+            "def run(input_data, primitives=None):\n"
+            "    query = input_data.get(\"question\", str(input_data))\n"
+            "    prompt = f\"Answer the following: {query}\"\n"
+            "    answer = primitives.llm.complete(prompt)\n"
+            "    return {\"answer\": answer}\n"
+            "```\n"
+            "Your pipeline should be more sophisticated — choose an appropriate "
+            "architectural pattern from the vocabulary above."
+        )
+
+        return "\n\n".join(sections)
+
+    def generate_initial(self, benchmark_description: str) -> ProposalResult:
+        """Generate an initial pipeline from scratch (cold-start).
+
+        Builds a cold-start-specific prompt with the goal, component
+        vocabulary, and benchmark description, then calls the LLM and
+        validates the result through the same extract/validate pipeline
+        as :meth:`propose`.
+
+        Returns a :class:`ProposalResult` — ``success=True`` with valid
+        source on success, or ``success=False`` with a structured error.
+        """
+        # Snapshot collector state for incremental cost tracking
+        collector: MetricsCollector | None = getattr(self.llm, "collector", None)
+        cost_before = collector.aggregate().cost_usd if collector else 0.0
+
+        prompt = self._build_cold_start_prompt(benchmark_description)
+        response = self.llm.complete(prompt)
+
+        # Compute incremental cost
+        cost_after = collector.aggregate().cost_usd if collector else 0.0
+        call_cost = cost_after - cost_before
+
+        # Empty response
+        if not response or not response.strip():
+            return ProposalResult(
+                success=False,
+                error="empty response",
+                cost_usd=call_cost,
+            )
+
+        # Extract and validate
+        source = self._extract_source(response)
+        validation_error = self._validate_source(source)
+        if validation_error is not None:
+            return ProposalResult(
+                proposed_source=source,
+                rationale=response,
+                cost_usd=call_cost,
+                success=False,
+                error=validation_error,
+            )
+
+        rationale = _CODE_BLOCK_RE.sub("", response).strip()
+        if not rationale:
+            rationale = "No rationale provided."
+
+        return ProposalResult(
+            proposed_source=source,
+            rationale=rationale,
+            cost_usd=call_cost,
+            success=True,
+            error=None,
+        )
+
     def propose(
         self,
         current_source: str,

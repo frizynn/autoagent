@@ -491,3 +491,99 @@ class TestStrategySignals:
         kept_pos = prompt.index("## Top Kept Iterations")
         strategy_pos = prompt.index("## Strategy Guidance")
         assert strategy_pos > kept_pos
+
+
+# ---------------------------------------------------------------------------
+# generate_initial() — cold-start pipeline generation
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateInitial:
+    """Tests for MetaAgent.generate_initial() — cold-start pipeline generation."""
+
+    def test_success_with_valid_pipeline(self):
+        collector = MetricsCollector()
+        llm = MockLLM(
+            response=VALID_PIPELINE_FENCED_WITH_RATIONALE,
+            collector=collector,
+        )
+        agent = MetaAgent(llm, goal="Answer questions accurately")
+        result = agent.generate_initial(benchmark_description="10 QA examples, scored by exact_match")
+        assert result.success is True
+        assert result.error is None
+        assert "def run" in result.proposed_source
+        assert result.rationale
+
+    def test_failure_with_invalid_code(self):
+        collector = MetricsCollector()
+        llm = MockLLM(
+            response=f"```python\n{SYNTAX_ERROR_SOURCE}```",
+            collector=collector,
+        )
+        agent = MetaAgent(llm, goal="test")
+        result = agent.generate_initial(benchmark_description="test benchmark")
+        assert result.success is False
+        assert result.error is not None
+        assert "syntax error" in result.error
+
+    def test_failure_missing_run(self):
+        collector = MetricsCollector()
+        llm = MockLLM(
+            response=f"```python\n{MISSING_RUN_SOURCE}```",
+            collector=collector,
+        )
+        agent = MetaAgent(llm, goal="test")
+        result = agent.generate_initial(benchmark_description="test benchmark")
+        assert result.success is False
+        assert "missing run() function" in result.error
+
+    def test_prompt_includes_vocabulary_and_benchmark(self):
+        collector = MetricsCollector()
+        llm = MockLLM(
+            response=VALID_PIPELINE_FENCED,
+            collector=collector,
+        )
+        agent = MetaAgent(llm, goal="Maximize accuracy")
+        agent.generate_initial(benchmark_description="QA benchmark with 50 examples")
+        prompt = llm.last_prompt
+        assert "## Component Vocabulary" in prompt
+        assert "QA benchmark with 50 examples" in prompt
+        assert "## Benchmark" in prompt
+        assert "primitives.llm.complete" in prompt
+        assert "Maximize accuracy" in prompt
+
+    def test_prompt_includes_example_pipeline(self):
+        collector = MetricsCollector()
+        llm = MockLLM(
+            response=VALID_PIPELINE_FENCED,
+            collector=collector,
+        )
+        agent = MetaAgent(llm, goal="test")
+        agent.generate_initial(benchmark_description="test")
+        prompt = llm.last_prompt
+        assert "## Example Pipeline" in prompt
+        assert "def run(input_data, primitives=None)" in prompt
+
+    def test_cost_tracking(self):
+        collector = MetricsCollector()
+        llm = MockLLM(
+            response=VALID_PIPELINE_FENCED,
+            tokens_in=150,
+            tokens_out=300,
+            model="gpt-4o-mini",
+            collector=collector,
+        )
+        agent = MetaAgent(llm, goal="test")
+        result = agent.generate_initial(benchmark_description="test benchmark")
+        assert len(collector.snapshots) == 1
+        assert collector.snapshots[0].tokens_in == 150
+        assert result.cost_usd == collector.aggregate().cost_usd
+        assert result.cost_usd > 0
+
+    def test_empty_response(self):
+        collector = MetricsCollector()
+        llm = MockLLM(response="", collector=collector)
+        agent = MetaAgent(llm, goal="test")
+        result = agent.generate_initial(benchmark_description="test benchmark")
+        assert result.success is False
+        assert result.error == "empty response"

@@ -133,3 +133,73 @@ class TestBenchmarkErrors:
                 FIXTURES / "toy_benchmark.json",
                 scoring_function="/tmp/does_not_exist.py",
             )
+
+
+# ---------------------------------------------------------------------------
+# Benchmark.describe() tests
+# ---------------------------------------------------------------------------
+
+
+class TestBenchmarkDescribe:
+    def _make_benchmark(self, n: int = 5) -> Benchmark:
+        """Create a Benchmark with *n* examples for describe() testing."""
+        examples = [
+            BenchmarkExample(input=f"q{i}", expected=f"a{i}", id=f"ex_{i}")
+            for i in range(n)
+        ]
+        return Benchmark(
+            examples=examples,
+            scorer=BUILT_IN_SCORERS["exact_match"],
+            scoring_function_name="exact_match",
+        )
+
+    def test_describe_includes_scorer_name(self):
+        bm = self._make_benchmark()
+        desc = bm.describe()
+        assert "exact_match" in desc
+
+    def test_describe_includes_total_count(self):
+        bm = self._make_benchmark(10)
+        desc = bm.describe()
+        assert "10 examples" in desc
+
+    def test_describe_samples_max_examples(self):
+        bm = self._make_benchmark(10)
+        desc = bm.describe(max_examples=3)
+        assert "3 of 10" in desc
+        # Should contain first 3 examples
+        assert "q0" in desc
+        assert "q2" in desc
+        # Should NOT contain 4th example input
+        assert "q3" not in desc
+
+    def test_describe_fewer_than_max(self):
+        bm = self._make_benchmark(2)
+        desc = bm.describe(max_examples=5)
+        assert "2 of 2" in desc
+        assert "q0" in desc
+        assert "q1" in desc
+
+    def test_describe_output_under_2k_chars(self):
+        bm = self._make_benchmark(100)
+        desc = bm.describe(max_examples=3)
+        assert isinstance(desc, str)
+        assert len(desc) > 0
+        assert len(desc) < 2000
+
+    def test_describe_with_dict_inputs(self):
+        examples = [
+            BenchmarkExample(
+                input={"question": "What is 2+2?", "context": "Math"},
+                expected={"answer": "4"},
+                id="dict_ex",
+            )
+        ]
+        bm = Benchmark(
+            examples=examples,
+            scorer=BUILT_IN_SCORERS["exact_match"],
+            scoring_function_name="exact_match",
+        )
+        desc = bm.describe()
+        assert "question" in desc
+        assert "What is 2+2?" in desc
