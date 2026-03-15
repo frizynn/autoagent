@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from autoagent.archive import ArchiveEntry
-from autoagent.meta_agent import MetaAgent, ProposalResult
+from autoagent.meta_agent import MetaAgent, ProposalResult, build_component_vocabulary
 from autoagent.primitives import MetricsCollector, MockLLM
 
 
@@ -363,3 +363,64 @@ class TestArchiveSummaryPrompt:
 
         # Archive Summary section should NOT be present
         assert "## Archive Summary" not in prompt
+
+
+# ---------------------------------------------------------------------------
+# Component vocabulary
+# ---------------------------------------------------------------------------
+
+
+class TestComponentVocabulary:
+    """Tests for build_component_vocabulary() and its injection into prompts."""
+
+    def test_vocabulary_section_in_prompt(self):
+        """_build_prompt() output includes the vocabulary section header."""
+        collector = MetricsCollector()
+        llm = MockLLM(collector=collector)
+        agent = MetaAgent(llm, goal="test")
+        prompt = agent._build_prompt("source", [], [])
+        assert "## Component Vocabulary" in prompt
+
+    def test_vocabulary_contains_primitives(self):
+        """Vocabulary mentions both primitive signatures."""
+        vocab = build_component_vocabulary()
+        assert "primitives.llm.complete" in vocab
+        assert "primitives.retriever.retrieve" in vocab
+
+    def test_vocabulary_contains_all_patterns(self):
+        """Vocabulary contains all 6 architectural pattern names."""
+        vocab = build_component_vocabulary()
+        for pattern in ["RAG", "CAG", "Debate", "Reflexion", "Ensemble", "Reranking"]:
+            assert pattern in vocab, f"Missing pattern: {pattern}"
+
+    def test_vocabulary_contains_anti_patterns(self):
+        """Vocabulary warns against hardcoded imports and missing primitives."""
+        vocab = build_component_vocabulary()
+        assert "import openai" in vocab
+        assert "import anthropic" in vocab
+        assert "hardcode" in vocab.lower() or "hardcoded" in vocab.lower()
+        assert "primitives" in vocab
+
+    def test_vocabulary_token_budget(self):
+        """Vocabulary output stays under ~2K tokens (~8K chars)."""
+        vocab = build_component_vocabulary()
+        assert len(vocab) < 8000, f"Vocabulary is {len(vocab)} chars, exceeds 8000 budget"
+
+    def test_system_instructions_mention_structural_changes(self):
+        """System instructions section mentions architecture/structural changes."""
+        collector = MetricsCollector()
+        llm = MockLLM(collector=collector)
+        agent = MetaAgent(llm, goal="test")
+        prompt = agent._build_prompt("source", [], [])
+        # The system instructions are the first section, before ## Goal
+        system_section = prompt.split("## Goal")[0]
+        assert "architecture" in system_section.lower()
+
+    def test_vocabulary_skeletons_use_primitives(self):
+        """All pattern skeletons call primitives.llm or primitives.retriever, never raw imports."""
+        vocab = build_component_vocabulary()
+        # Every skeleton should use primitives
+        assert "primitives.llm.complete(" in vocab
+        # No raw provider imports in skeletons
+        assert "from openai" not in vocab
+        assert "from anthropic" not in vocab

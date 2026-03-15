@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 complete. M002 S01 (Archive Compression & Summarization) complete — ArchiveSummarizer compresses 50+ archive entries into structured ~3K token LLM summaries, OptimizationLoop switches to summaries past configurable threshold with cost tracking and graceful fallback. 208 tests passing. 11 requirements validated (R001-R006, R008, R016, R017, R019, R022).
+M001 complete. M002 S01 (Archive Compression & Summarization) and S02 (Structural Search & Component Vocabulary) complete — meta-agent prompt now includes component vocabulary with 6 architectural patterns (RAG, CAG, Debate, Reflexion, Ensemble, Reranking), primitive signatures, anti-pattern guidance, and structural mutation system instructions. 208 tests passing. 11 requirements validated (R001-R006, R008, R016, R017, R019, R022).
 
-Next: M002 S02 (Structural Search & Component Vocabulary) and S04 (Cold-Start) are unblocked. S03 (Strategy Selection) depends on S01+S02.
+Next: M002 S03 (Strategy Selection) and S04 (Cold-Start) are both unblocked.
 
 ## Architecture / Key Patterns
 
