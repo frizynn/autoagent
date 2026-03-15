@@ -35,6 +35,7 @@ from autoagent.state import ProjectState, StateManager
 from autoagent.strategy import analyze_strategy, classify_mutation
 from autoagent.summarizer import ArchiveSummarizer
 from autoagent.types import MetricsSnapshot
+from autoagent.verification import TLAVerifier, VerificationResult
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,7 @@ class OptimizationLoop:
         summary_threshold: int = 20,
         summary_interval: int = 10,
         summarizer_llm: LLMProtocol | None = None,
+        tla_verifier: TLAVerifier | None = None,
     ) -> None:
         self.state_manager = state_manager
         self.archive = archive
@@ -111,6 +113,7 @@ class OptimizationLoop:
         self.summary_threshold = summary_threshold
         self.summary_interval = summary_interval
         self.summarizer_llm = summarizer_llm
+        self.tla_verifier = tla_verifier
         # Cached summary state
         self._cached_summary: str = ""
         self._summary_archive_len: int = 0
@@ -317,6 +320,66 @@ class OptimizationLoop:
                 # Write proposed source to disk for evaluation
                 pipeline_path.write_text(proposal.proposed_source, encoding="utf-8")
 
+                # --- TLA+ verification gate ---
+                tla_verification: dict[str, Any] | None = None
+                if self.tla_verifier is not None:
+                    vr = self.tla_verifier.verify(proposal.proposed_source)
+                    total_cost += vr.cost_usd
+                    tla_verification = {
+                        "passed": vr.passed,
+                        "violations": list(vr.violations),
+                        "spec_text": vr.spec_text,
+                        "attempts": vr.attempts,
+                        "cost_usd": vr.cost_usd,
+                        "skipped": vr.skipped,
+                        "skip_reason": vr.skip_reason,
+                    }
+
+                    if not vr.passed and not vr.skipped:
+                        # TLA+ failed — discard without evaluation
+                        rationale = f"tla_verification_failed: {'; '.join(vr.violations)}"
+                        logger.info(
+                            "Iteration %d: TLA+ verification failed, discarding: %s",
+                            iteration,
+                            rationale,
+                        )
+                        eval_result = _make_failed_evaluation()
+                        parent_id = (
+                            int(best_iteration_id) if best_iteration_id else None
+                        )
+                        self.archive.add(
+                            pipeline_source=proposal.proposed_source,
+                            evaluation_result=eval_result,
+                            rationale=rationale,
+                            decision="discard",
+                            parent_iteration_id=parent_id,
+                            mutation_type="parametric",
+                            tla_verification=tla_verification,
+                        )
+                        # Restore previous best on disk
+                        pipeline_path.write_text(
+                            current_best_source, encoding="utf-8"
+                        )
+                        state = replace(
+                            state,
+                            current_iteration=iteration,
+                            total_cost_usd=total_cost,
+                            updated_at=_now_iso(),
+                        )
+                        sm.write_state(state)
+                        continue
+
+                    if vr.passed and not vr.skipped:
+                        logger.info(
+                            "Iteration %d: TLA+ verification passed (%d attempts, $%.6f)",
+                            iteration, vr.attempts, vr.cost_usd,
+                        )
+                    elif vr.skipped:
+                        logger.info(
+                            "Iteration %d: TLA+ verification skipped: %s",
+                            iteration, vr.skip_reason,
+                        )
+
                 # Evaluate
                 eval_result = self.evaluator.evaluate(
                     pipeline_path=pipeline_path,
@@ -370,6 +433,7 @@ class OptimizationLoop:
                         current_best_source if parent_id is None else None
                     ),
                     mutation_type=mt,
+                    tla_verification=tla_verification,
                 )
 
                 if decision == "keep":

@@ -74,13 +74,13 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ### R014 — TLA+ Verification for All Pipelines
 - Class: quality-attribute
-- Status: active
+- Status: validated
 - Description: Every proposed pipeline gets a TLA+ spec generated and model-checked by TLC before evaluation — catches deadlocks, infinite loops, termination failures
 - Why it matters: Burns tokens on verification instead of burning tokens on broken evaluations
 - Source: user
 - Primary owning slice: M003/S01
 - Supporting slices: M003/S02, M003/S03
-- Validation: unmapped
+- Validation: validated — TLAVerifier generates TLA+ specs via LLM, model-checks via TLC subprocess with genefication retry (max 3 attempts per D048), complexity threshold skip (D047), graceful degradation when Java unavailable (D043). Loop gate blocks failing proposals before evaluation. 29 unit tests + 7 integration tests. Contract-level proof in S01.
 - Notes: Universal gate (all pipelines, not just concurrent). Genefication pattern: LLM drafts spec → TLC verifies → iterate.
 
 
@@ -316,7 +316,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R011 | core-capability | active | M002/S02 | M002/S04 | unmapped |
 | R012 | core-capability | active | M002/S03 | M002/S04 | unmapped |
 | R013 | core-capability | active | M002/S04 | M002/S01 | unmapped |
-| R014 | quality-attribute | active | M003/S01 | M003/S02, M003/S03 | unmapped |
+| R014 | quality-attribute | validated | M003/S01 | M003/S02, M003/S03 | validated (S01) |
 | R015 | core-capability | validated | M002/S04 | M004/S01 | validated (S04) |
 | R016 | continuity | validated | M002/S01 | M001/S04 | validated (S01) |
 | R017 | operability | validated | M001/S06 | M004/S04 | validated (S06) |
@@ -332,7 +332,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 12
+- Active requirements: 11
 - Mapped to slices: 24
-- Validated: 12
+- Validated: 13
 - Unmapped active requirements: 0

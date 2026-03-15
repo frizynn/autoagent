@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-M001 and M002 complete. The full search intelligence stack is operational: component vocabulary (architectural patterns like RAG, CAG, debate, reflexion, ensemble, reranking), archive compression (LLM-generated structured summaries at scale), strategy selection (sliding-window stagnation detection with graduated explore/exploit signals), and cold-start pipeline generation (LLM generates initial pipeline from goal + benchmark + vocabulary when no custom pipeline exists). 267 tests passing. 12 requirements validated (R001-R006, R008, R015, R016, R017, R019, R022).
+M001 and M002 complete. M003 in progress — S01 (TLA+ Verification Gate) complete. The TLA+ verification gate generates specs via LLM, model-checks via TLC subprocess with genefication retry, and blocks failing proposals before evaluation. Graceful degradation when Java/TLC unavailable. 303 tests passing (267 prior + 36 new). 13 requirements validated (R001-R006, R008, R014, R015, R016, R017, R019, R022).
 
-Next: M003 (Safety & Verification).
+Next: M003/S02 (Pareto Evaluation with Simplicity Criterion).
 
 ## Architecture / Key Patterns
 
