@@ -56,7 +56,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S06
 - Supporting slices: M001/S02
-- Validation: partial — atomic writes, PID-based lock with stale detection implemented in S02. Full crash recovery (kill/restart/resume) in S06.
+- Validation: validated — Atomic writes and PID-based lock (S02). Full crash recovery: resume from archive with best_score reconstruction, pipeline.py restoration from archive's best kept entry, iteration continuity across restarts (S06, 7 tests).
 - Notes: GSD-2 style — lock files, state reconstruction from disk
 
 ### R006 — PI-Based CLI
@@ -188,7 +188,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S06
 - Supporting slices: M004/S04
-- Validation: unmapped
+- Validation: validated — Hard ceiling check before each iteration, pre-iteration cost estimation using global average, phase="paused" on budget exhaustion (S06, 2 tests).
 - Notes: Budget tracks both meta-agent LLM cost and pipeline evaluation cost
 
 ### R018 — Provider-Agnostic Primitives
@@ -210,7 +210,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S06
 - Supporting slices: M004/S04
-- Validation: unmapped
+- Validation: validated — Autonomous loop (S05) + budget ceiling auto-pause (S06) + crash recovery with resume (S06) together prove unattended operation. No human-in-the-loop per iteration.
 - Notes: No interactive approval, no human-in-the-loop per iteration
 
 ### R020 — Simplicity Criterion
@@ -308,7 +308,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R002 | constraint | validated | M001/S01 | M001/S05 | validated (S01+S05) |
 | R003 | core-capability | validated | M001/S01 | M001/S03 | validated (S01+S03+S05) |
 | R004 | core-capability | validated | M001/S04 | M002/S01 | validated (S04+S05) |
-| R005 | continuity | active | M001/S06 | M001/S02 | partial (S02) |
+| R005 | continuity | validated | M001/S06 | M001/S02 | validated (S02+S06) |
 | R006 | core-capability | validated | M001/S02 | M004/S05 | validated (S02+S05) |
 | R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |
 | R008 | core-capability | validated | M001/S03 | M004/S02 | validated (S03+S05) |
@@ -320,9 +320,9 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R014 | quality-attribute | active | M003/S01 | M003/S02, M003/S03 | unmapped |
 | R015 | core-capability | active | M002/S05 | M004/S01 | unmapped |
 | R016 | continuity | active | M002/S01 | M001/S04 | unmapped |
-| R017 | operability | active | M001/S06 | M004/S04 | unmapped |
+| R017 | operability | validated | M001/S06 | M004/S04 | validated (S06) |
 | R018 | integration | active | M001/S01 | none | unmapped |
-| R019 | primary-user-loop | active | M001/S06 | M004/S04 | unmapped |
+| R019 | primary-user-loop | validated | M001/S06 | M004/S04 | validated (S05+S06) |
 | R020 | quality-attribute | active | M003/S05 | none | unmapped |
 | R021 | compliance/security | active | M003/S06 | none | unmapped |
 | R022 | operability | validated | M001/S03 | none | validated (S03+S05) |
@@ -333,7 +333,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 17
+- Active requirements: 14
 - Mapped to slices: 24
-- Validated: 7
+- Validated: 10
 - Unmapped active requirements: 0

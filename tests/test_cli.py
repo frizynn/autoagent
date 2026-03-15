@@ -97,6 +97,18 @@ class TestRun:
         assert result.returncode == 0
         assert "--max-iterations" in result.stdout
 
+    def test_run_budget_arg(self) -> None:
+        """--budget appears in run help and parses correctly."""
+        result = run_cli("run", "--help")
+        assert result.returncode == 0
+        assert "--budget" in result.stdout
+
+        # Verify it parses via build_parser
+        from autoagent.cli import build_parser
+        parser = build_parser()
+        args = parser.parse_args(["run", "--budget", "5.00"])
+        assert args.budget == 5.00
+
 
 # ---------------------------------------------------------------------------
 # help

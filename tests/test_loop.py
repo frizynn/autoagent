@@ -421,3 +421,292 @@ class TestOptimizationLoop:
 
         # Lock should be released
         assert not sm.lock_path.exists()
+
+    # ------------------------------------------------------------------
+    # Budget & Resume tests
+    # ------------------------------------------------------------------
+
+    def test_budget_pause(self, tmp_path: Path) -> None:
+        """Loop pauses when total cost exceeds budget."""
+        sm = _init_project(tmp_path)
+        benchmark = _make_benchmark(tmp_path)
+        archive = Archive(sm.archive_dir)
+
+        # Each proposal costs $0.01, budget is $0.02 → should run 2 then pause
+        proposals = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.01, success=True),
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.01, success=True),
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.01, success=True),
+        ]
+        meta = SequentialMockMetaAgent(proposals)
+
+        loop = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            budget_usd=0.02,
+        )
+
+        final = loop.run()
+
+        assert final.phase == "paused"
+        assert final.current_iteration == 2
+        assert final.total_cost_usd >= 0.02
+
+    def test_budget_estimation_pause(self, tmp_path: Path) -> None:
+        """Loop pauses before starting an iteration that would exceed budget."""
+        sm = _init_project(tmp_path)
+        benchmark = _make_benchmark(tmp_path)
+        archive = Archive(sm.archive_dir)
+
+        # Each proposal costs $0.01, budget $0.025 — after 2 iterations
+        # cost is ~$0.02, avg ~$0.01, estimated next total ~$0.03 > $0.025
+        proposals = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.01, success=True),
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.01, success=True),
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.01, success=True),
+        ]
+        meta = SequentialMockMetaAgent(proposals)
+
+        loop = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            budget_usd=0.025,
+        )
+
+        final = loop.run()
+
+        assert final.phase == "paused"
+        assert final.current_iteration == 2
+
+    def test_resume_from_state(self, tmp_path: Path) -> None:
+        """Run 2 iterations, create new loop, run 2 more → iteration=4."""
+        sm = _init_project(tmp_path)
+        benchmark = _make_benchmark(tmp_path)
+        archive = Archive(sm.archive_dir)
+
+        proposals = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.001, success=True),
+        ]
+        meta = SequentialMockMetaAgent(proposals)
+
+        loop1 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=2,
+        )
+        loop1.run()
+
+        state_after_1 = sm.read_state()
+        assert state_after_1.current_iteration == 2
+
+        # Create a new loop with the same state/archive
+        meta2 = SequentialMockMetaAgent(proposals)
+        loop2 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta2,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=2,
+        )
+        final = loop2.run()
+
+        assert final.current_iteration == 4
+        assert len(archive) == 4
+
+    def test_resume_reconstructs_best_score(self, tmp_path: Path) -> None:
+        """After resume, keep/discard decisions reflect archive history."""
+        sm = _init_project(tmp_path)
+        benchmark = _make_benchmark(tmp_path)
+        archive = Archive(sm.archive_dir)
+
+        # V1 scores high (exact match), run 1 iteration to establish best
+        proposals1 = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.001, success=True),
+        ]
+        meta1 = SequentialMockMetaAgent(proposals1)
+
+        loop1 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta1,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=1,
+        )
+        loop1.run()
+
+        # V1 had score ~1.0 (exact match). Resume with V2 (uppercase, score 0).
+        # If best_score is reconstructed, V2 should be discarded.
+        proposals2 = [
+            ProposalResult(proposed_source=_PIPELINE_V2, rationale="v2", cost_usd=0.001, success=True),
+        ]
+        meta2 = SequentialMockMetaAgent(proposals2)
+
+        loop2 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta2,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=1,
+        )
+        loop2.run()
+
+        entries = archive.query()
+        assert len(entries) == 2
+        assert entries[0].decision == "keep"    # V1
+        assert entries[1].decision == "discard"  # V2 (worse than reconstructed best)
+
+    def test_resume_restores_pipeline_from_archive(self, tmp_path: Path) -> None:
+        """After crash with stale source on disk, resume restores from archive."""
+        sm = _init_project(tmp_path)
+        benchmark = _make_benchmark(tmp_path)
+        archive = Archive(sm.archive_dir)
+
+        # Run 1 iteration to establish best (V1)
+        proposals1 = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.001, success=True),
+        ]
+        meta1 = SequentialMockMetaAgent(proposals1)
+
+        loop1 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta1,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=1,
+        )
+        loop1.run()
+
+        # Simulate crash: write stale/wrong source to pipeline.py
+        sm.pipeline_path.write_text("# STALE CRASH ARTIFACT", encoding="utf-8")
+
+        # Resume — should restore V1 from archive
+        proposals2 = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1 again", cost_usd=0.001, success=True),
+        ]
+        meta2 = SequentialMockMetaAgent(proposals2)
+
+        loop2 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta2,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=1,
+        )
+        loop2.run()
+
+        # Pipeline on disk should NOT have the stale content
+        on_disk = sm.pipeline_path.read_text(encoding="utf-8")
+        assert "STALE" not in on_disk
+        assert "V1" in on_disk
+
+    def test_resume_from_paused_phase(self, tmp_path: Path) -> None:
+        """Phase='paused' → running on resume with higher budget."""
+        sm = _init_project(tmp_path)
+        benchmark = _make_benchmark(tmp_path)
+        archive = Archive(sm.archive_dir)
+
+        proposals = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.01, success=True),
+        ]
+        meta = SequentialMockMetaAgent(proposals)
+
+        # Budget $0.01 — will run 1 then pause
+        loop1 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            budget_usd=0.01,
+        )
+        state1 = loop1.run()
+        assert state1.phase == "paused"
+
+        # Resume with higher budget
+        meta2 = SequentialMockMetaAgent(proposals)
+        loop2 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta2,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            budget_usd=1.00,
+            max_iterations=2,
+        )
+        state2 = loop2.run()
+
+        # Should have continued past the paused state
+        assert state2.phase == "completed"
+        assert state2.current_iteration > state1.current_iteration
+
+    def test_resume_all_discards(self, tmp_path: Path) -> None:
+        """Resume when all archive entries are discards → best_score stays None."""
+        sm = _init_project(tmp_path)
+        benchmark = _make_benchmark(tmp_path)
+        archive = Archive(sm.archive_dir)
+
+        # Run 1 iteration with a failing proposal → discard only
+        proposals1 = [
+            ProposalResult(proposed_source="", rationale="", cost_usd=0.001, success=False, error="bad"),
+        ]
+        meta1 = SequentialMockMetaAgent(proposals1)
+
+        loop1 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta1,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=1,
+        )
+        loop1.run()
+
+        # All entries are discards
+        assert all(e.decision == "discard" for e in archive.query())
+
+        # Resume — V1 should be kept as first good eval
+        proposals2 = [
+            ProposalResult(proposed_source=_PIPELINE_V1, rationale="v1", cost_usd=0.001, success=True),
+        ]
+        meta2 = SequentialMockMetaAgent(proposals2)
+
+        loop2 = OptimizationLoop(
+            state_manager=sm,
+            archive=archive,
+            evaluator=_make_evaluator(tmp_path),
+            meta_agent=meta2,
+            benchmark=benchmark,
+            primitives_factory=_make_primitives_factory(),
+            max_iterations=1,
+        )
+        loop2.run()
+
+        entries = archive.query()
+        assert len(entries) == 2
+        # The resumed iteration should be kept (first good eval, best_score was None)
+        assert entries[1].decision == "keep"

@@ -133,6 +133,13 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
 
     max_iterations = getattr(args, "max_iterations", None)
+    budget = getattr(args, "budget", None)
+
+    # Persist budget to config if provided
+    if budget is not None:
+        from dataclasses import replace
+        config = replace(config, budget_usd=budget)
+        sm.write_config(config)
 
     loop = OptimizationLoop(
         state_manager=sm,
@@ -142,6 +149,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         benchmark=benchmark,
         primitives_factory=primitives_factory,
         max_iterations=max_iterations,
+        budget_usd=budget if budget is not None else config.budget_usd,
     )
 
     try:
@@ -154,7 +162,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 1
 
     # Print summary
-    print(f"Optimization complete.")
+    if final_state.phase == "paused":
+        print("Paused (budget).")
+    else:
+        print(f"Optimization complete.")
     print(f"  Iterations: {final_state.current_iteration}")
     print(f"  Best iteration: {final_state.best_iteration_id or '—'}")
     print(f"  Total cost (USD): ${final_state.total_cost_usd:.4f}")
@@ -189,6 +200,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="Maximum number of optimization iterations (default: unlimited)",
+    )
+    run_parser.add_argument(
+        "--budget",
+        type=float,
+        default=None,
+        help="Budget ceiling in USD — loop pauses before exceeding (default: unlimited)",
     )
 
     return parser

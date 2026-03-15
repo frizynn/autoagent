@@ -4,10 +4,12 @@ Orchestrates MetaAgent, Evaluator, Archive, and StateManager into an
 autonomous optimization loop.  Each iteration proposes a pipeline mutation,
 evaluates it against a benchmark, and keeps or discards based on primary_score.
 
-Phase transitions: initialized → running → completed
+Phase transitions: initialized → running → completed | paused
 State is persisted atomically after every iteration.
 MetaAgent failures (compile/validation errors) produce discard entries
 without halting the loop.
+Budget exhaustion triggers phase="paused" (distinct from "completed").
+Resume from "paused" or stale "running" reconstructs best state from archive.
 """
 
 from __future__ import annotations
@@ -64,6 +66,9 @@ class OptimizationLoop:
         Callable returning a fresh PrimitivesContext per evaluation.
     max_iterations:
         Stop after this many iterations. None = unlimited.
+    budget_usd:
+        Hard dollar ceiling. Loop pauses before exceeding this amount.
+        None = no budget limit.
     """
 
     def __init__(
@@ -75,6 +80,7 @@ class OptimizationLoop:
         benchmark: Benchmark,
         primitives_factory: Callable[[], PrimitivesContext],
         max_iterations: int | None = None,
+        budget_usd: float | None = None,
     ) -> None:
         self.state_manager = state_manager
         self.archive = archive
@@ -83,6 +89,7 @@ class OptimizationLoop:
         self.benchmark = benchmark
         self.primitives_factory = primitives_factory
         self.max_iterations = max_iterations
+        self.budget_usd = budget_usd
 
     def run(self) -> ProjectState:
         """Execute the optimization loop.
@@ -90,9 +97,14 @@ class OptimizationLoop:
         Returns the final ProjectState after completion.
 
         Phase transitions:
-        - Sets phase="running" at start
+        - Sets phase="running" at start (also handles "paused" → "running")
         - Sets phase="completed" at end (or on max_iterations reached)
+        - Sets phase="paused" on budget exhaustion
         - Lock is always released in the finally block
+
+        Resume behavior:
+        - If current_iteration > 0, reconstructs best_score from archive
+        - Restores pipeline.py from the best kept archive entry
         """
         sm = self.state_manager
         pipeline_path = sm.pipeline_path
@@ -116,8 +128,64 @@ class OptimizationLoop:
             total_cost = state.total_cost_usd
             iteration = state.current_iteration
 
+            # --- Resume from state ---
+            if iteration > 0:
+                # Reconstruct best_score from archive's best kept entry
+                best_kept = self.archive.query(
+                    decision="keep",
+                    sort_by="primary_score",
+                    ascending=False,
+                    limit=1,
+                )
+                if best_kept:
+                    entry = best_kept[0]
+                    best_score = entry.evaluation_result["primary_score"]
+                    # Restore pipeline source from archive snapshot
+                    archive_pipeline = (
+                        self.archive.archive_dir
+                        / f"{str(entry.iteration_id).zfill(max(3, len(str(entry.iteration_id))))}-pipeline.py"
+                    )
+                    if archive_pipeline.exists():
+                        current_best_source = archive_pipeline.read_text(
+                            encoding="utf-8"
+                        )
+                        pipeline_path.write_text(
+                            current_best_source, encoding="utf-8"
+                        )
+                # If no kept entries, best_score stays None — first good eval
+                # will be kept. current_best_source stays as whatever is on disk.
+
             iterations_run = 0
             while self.max_iterations is None or iterations_run < self.max_iterations:
+                # --- Budget check before iteration ---
+                if self.budget_usd is not None:
+                    if total_cost >= self.budget_usd:
+                        state = replace(
+                            state,
+                            phase="paused",
+                            current_iteration=iteration,
+                            total_cost_usd=total_cost,
+                            updated_at=_now_iso(),
+                        )
+                        sm.write_state(state)
+                        return state
+
+                    # Estimate next iteration cost from average of prior
+                    if iterations_run > 0:
+                        avg_cost = total_cost / (
+                            iteration if iteration > 0 else iterations_run
+                        )
+                        if total_cost + avg_cost > self.budget_usd:
+                            state = replace(
+                                state,
+                                phase="paused",
+                                current_iteration=iteration,
+                                total_cost_usd=total_cost,
+                                updated_at=_now_iso(),
+                            )
+                            sm.write_state(state)
+                            return state
+
                 iteration += 1
                 iterations_run += 1
 

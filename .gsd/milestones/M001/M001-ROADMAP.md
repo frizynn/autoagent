@@ -67,7 +67,7 @@ This milestone is complete only when all are true:
 - [x] **S05: The Optimization Loop** `risk:high` `depends:[S01,S02,S03,S04]`
   > After this: the meta-agent reads the archive, proposes a mutation to pipeline.py, evaluates it against the benchmark, and keeps or discards based on metrics — runs ≥3 iterations autonomously. Proven by running the loop with real LLM calls against a toy benchmark.
 
-- [ ] **S06: Budget, Recovery & Fire-and-Forget** `risk:medium` `depends:[S05]`
+- [x] **S06: Budget, Recovery & Fire-and-Forget** `risk:medium` `depends:[S05]`
   > After this: `autoagent run --budget 5.00` runs with hard budget ceiling and auto-pause; process can be killed and restarted without losing progress; fire-and-forget operation works end-to-end. Proven by budget-triggered pause and kill/restart recovery test.
 
 ## Boundary Map
