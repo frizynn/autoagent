@@ -23,7 +23,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Description: Every evaluation step checks for train/test contamination before running benchmarks — permanent guardrail, not one-time check
 - Why it matters: User's #1 concern alongside reward hacking — leaky benchmarks make all improvements fake
 - Source: user
-- Primary owning slice: M003/S04
+- Primary owning slice: M003/S03
 - Supporting slices: M001/S03
 - Validation: unmapped
 - Notes: "ALWAYS CHECK IN EVERY STEP BEFORE RUNNING BENCHMARKS" — user's exact words. Could be via prompting or mechanical checks.
@@ -34,7 +34,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Description: Track multiple metrics (primary goal + latency + cost + code quality); reject changes that game primary metric at expense of others
 - Why it matters: Prevents reward hacking — user's nightmare is waking up to gamed metrics with degraded quality
 - Source: user
-- Primary owning slice: M003/S05
+- Primary owning slice: M003/S02
 - Supporting slices: M001/S03
 - Validation: unmapped
 - Notes: Meta-agent sees full metric vector, not scalar score
@@ -101,7 +101,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Description: Changes that add complexity for marginal gains are rejected — simpler is better, all else equal
 - Why it matters: Prevents reward hacking via complexity accumulation; keeps pipelines readable and debuggable
 - Source: research (autoresearch)
-- Primary owning slice: M003/S05
+- Primary owning slice: M003/S02
 - Supporting slices: none
 - Validation: unmapped
 - Notes: "A 0.001 improvement that adds 20 lines of hacky code? Probably not worth it." — autoresearch
@@ -112,7 +112,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Description: Pipeline execution runs in isolated environment — model-generated code cannot access host filesystem, network, or state outside sandbox
 - Why it matters: Executing untrusted model-generated code is inherently risky (ADAS safety warning)
 - Source: research (ADAS)
-- Primary owning slice: M003/S06
+- Primary owning slice: M003/S04
 - Supporting slices: none
 - Validation: unmapped
 - Notes: Critical for unattended overnight runs
@@ -311,8 +311,8 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R006 | core-capability | validated | M001/S02 | M004/S05 | validated (S02+S05) |
 | R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |
 | R008 | core-capability | validated | M001/S03 | M004/S02 | validated (S03+S05) |
-| R009 | quality-attribute | active | M003/S04 | M001/S03 | unmapped |
-| R010 | quality-attribute | active | M003/S05 | M001/S03 | unmapped |
+| R009 | quality-attribute | active | M003/S03 | M001/S03 | unmapped |
+| R010 | quality-attribute | active | M003/S02 | M001/S03 | unmapped |
 | R011 | core-capability | active | M002/S02 | M002/S04 | unmapped |
 | R012 | core-capability | active | M002/S03 | M002/S04 | unmapped |
 | R013 | core-capability | active | M002/S04 | M002/S01 | unmapped |
@@ -322,8 +322,8 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R017 | operability | validated | M001/S06 | M004/S04 | validated (S06) |
 | R018 | integration | active | M001/S01 | none | unmapped |
 | R019 | primary-user-loop | validated | M001/S06 | M004/S04 | validated (S05+S06) |
-| R020 | quality-attribute | active | M003/S05 | none | unmapped |
-| R021 | compliance/security | active | M003/S06 | none | unmapped |
+| R020 | quality-attribute | active | M003/S02 | none | unmapped |
+| R021 | compliance/security | active | M003/S04 | none | unmapped |
 | R022 | operability | validated | M001/S03 | none | validated (S03+S05) |
 | R023 | core-capability | active | M004/S02 | M003/S04 | unmapped |
 | R024 | core-capability | active | M002/S04 | M002/S01 | unmapped |
