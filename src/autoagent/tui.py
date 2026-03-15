@@ -405,6 +405,8 @@ class AutoagentApp(App[int]):
         Binding("r", "start_run", "Run", show=True),
         Binding("s", "stop_run", "Stop", show=True),
         Binding("n", "start_interview", "New", show=True),
+        Binding("v", "view_report", "Report", show=True),
+        Binding("i", "init_project", "Init", show=True),
         Binding("escape", "cancel_interview", "Cancel", show=False),
     ]
 
@@ -492,14 +494,18 @@ class AutoagentApp(App[int]):
         self._load_project_state()
 
         if self._project_initialized:
-            log.write("[dim]Project loaded. Press [bold]r[/bold] to start a run.[/]")
+            log.write(
+                "[dim]Project loaded. Keybinds: "
+                "[bold]r[/]=Run  [bold]s[/]=Stop  [bold]n[/]=New  "
+                "[bold]v[/]=Report  [bold]q[/]=Quit[/]"
+            )
             # If watch mode, also poll state.json periodically
             if self._watch_dir is not None:
                 self.set_interval(2.0, self._poll_state_file)
         else:
             log.write(
-                "[yellow]No autoagent project found in this directory.[/]\n"
-                "[dim]Run [bold]autoagent init[/bold] to create one, then reopen.[/]"
+                "[yellow]No autoagent project found.[/]\n"
+                "[dim]Press [bold]i[/bold] to initialize, or [bold]q[/bold] to quit.[/]"
             )
             self.phase = "no project"
             self._update_cards()
@@ -840,6 +846,55 @@ class AutoagentApp(App[int]):
         self._interviewing = False
         self._hide_interview_input()
         self.query_one("#event-log", RichLog).write("[yellow]Interview cancelled.[/]")
+
+    def action_view_report(self) -> None:
+        """Generate and display the optimization report in the log."""
+        log = self.query_one("#event-log", RichLog)
+
+        if not self._project_initialized:
+            log.write("[yellow]No project to report on.[/]")
+            return
+
+        from autoagent.archive import Archive
+        from autoagent.report import generate_report
+        from autoagent.state import StateManager
+
+        sm = StateManager(self._project_dir)
+        try:
+            state = sm.read_state()
+            config = sm.read_config()
+            archive = Archive(sm.archive_dir)
+            entries = archive.query()
+        except Exception as exc:
+            log.write(f"[bold red]❌ Could not read project data:[/] {exc}")
+            return
+
+        result = generate_report(entries, state, config)
+
+        log.write("\n[bold cyan]═══ Optimization Report ═══[/]\n")
+        for line in result.markdown.split("\n"):
+            log.write(line)
+        log.write(f"\n[dim]{result.summary}[/]\n")
+
+    def action_init_project(self) -> None:
+        """Initialize a new autoagent project in the current directory."""
+        log = self.query_one("#event-log", RichLog)
+
+        if self._project_initialized:
+            log.write("[dim]Project already initialized.[/]")
+            return
+
+        from autoagent.state import StateManager
+
+        sm = StateManager(self._project_dir)
+        try:
+            sm.init_project()
+            log.write(f"[bold green]✅ Initialized project at {sm.aa_dir}[/]")
+            self._load_project_state()
+        except FileExistsError:
+            log.write("[yellow]Project already exists.[/]")
+        except OSError as exc:
+            log.write(f"[bold red]❌ Init failed:[/] {exc}")
 
     # -- Interview ---------------------------------------------------------
 

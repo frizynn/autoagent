@@ -46,9 +46,9 @@ This milestone is complete only when all are true:
 
 - [x] **S01: Home screen and subprocess loop runner** `risk:high` `depends:[]`
   > After this: `autoagent` opens a TUI with project status, can start/stop an optimization run via subprocess, and shows live iteration progress
-- [ ] **S02: Interview flow inside TUI** `risk:high` `depends:[S01]`
+- [x] **S02: Interview flow inside TUI** `risk:high` `depends:[S01]`
   > After this: user can configure a new project via the multi-turn interview without leaving the TUI
-- [ ] **S03: Report viewer and polish** `risk:low` `depends:[S01]`
+- [x] **S03: Report viewer and polish** `risk:low` `depends:[S01]`
   > After this: user can view the optimization report inside the TUI, and the overall UX is polished (keybinds, error states, help text)
 
 ## Boundary Map

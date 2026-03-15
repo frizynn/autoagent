@@ -51,7 +51,7 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M003: Safety & Verification — TLA+ verification, data leakage guardrail, Pareto evaluation, reward hacking defense, sandbox
 - [x] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting
 - [x] M005: Pi TUI Extension — Interactive dashboard, live loop monitoring, interview overlay, reporting overlay via pi extension
-- [ ] M006: Standalone TUI — Native Python TUI that replaces the Pi extension, full interactive experience from `autoagent` command
+- [x] M006: Standalone TUI — Native Python TUI that replaces the Pi extension, full interactive experience from `autoagent` command
 
 ## Known Gaps
 
