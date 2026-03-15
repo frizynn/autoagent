@@ -47,7 +47,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Source: user
 - Primary owning slice: M001/S04
 - Supporting slices: M002/S01
-- Validation: unmapped
+- Validation: partial — Archive module implemented in S04 with ArchiveEntry (metrics, diff, rationale, timestamp), atomic writes, query/filter/sort, 32 tests passing. Full validation when wired into live optimization loop (S05).
 - Notes: Must include metrics vector, pipeline diff, meta-agent rationale, timestamp
 
 ### R005 — Crash-Recoverable Disk State
@@ -309,7 +309,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R001 | core-capability | active | M001/S05 | M001/S06 | unmapped |
 | R002 | constraint | active | M001/S01 | M001/S05 | unmapped |
 | R003 | core-capability | active | M001/S01 | M001/S03 | partial (S01, S03) |
-| R004 | core-capability | active | M001/S04 | M002/S01 | unmapped |
+| R004 | core-capability | active | M001/S04 | M002/S01 | partial (S04) |
 | R005 | continuity | active | M001/S06 | M001/S02 | unmapped |
 | R006 | core-capability | active | M001/S02 | M004/S05 | unmapped |
 | R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |

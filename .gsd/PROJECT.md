@@ -10,9 +10,9 @@ The autonomous optimization loop — fire-and-forget overnight, wake up to genui
 
 ## Current State
 
-S01 (Pipeline Execution Engine), S02 (CLI Scaffold & Disk State), and S03 (Evaluation & Benchmark) complete. The foundational type contracts, instrumented primitives, metrics collection, dynamic pipeline execution, disk state management, CLI commands, benchmark loading, and evaluation with per-example timeout are all implemented and tested. 105 total tests passing.
+S01 (Pipeline Execution Engine), S02 (CLI Scaffold & Disk State), S03 (Evaluation & Benchmark), and S04 (Monotonic Archive) complete. The foundational type contracts, instrumented primitives, metrics collection, dynamic pipeline execution, disk state management, CLI commands, benchmark loading, evaluation with per-example timeout, and monotonic archive with query/filter/sort are all implemented and tested. 137 total tests passing.
 
-Next: S04 (Monotonic Archive) — all dependencies met (S01, S03). S05 depends on S01+S02+S03+S04.
+Next: S05 (The Optimization Loop) — all dependencies met (S01+S02+S03+S04). This is the high-risk slice that wires everything together into the autonomous propose→evaluate→keep/discard loop.
 
 ## Architecture / Key Patterns
 

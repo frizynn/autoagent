@@ -61,7 +61,7 @@ This milestone is complete only when all are true:
 - [x] **S03: Evaluation & Benchmark** `risk:medium` `depends:[S01]`
   > After this: a pipeline runs against a provided benchmark dataset with a scoring function; multi-metric results (primary score + latency + tokens + cost) are captured in a structured evaluation result. Proven by evaluating a toy pipeline against a toy benchmark.
 
-- [ ] **S04: Monotonic Archive** `risk:low` `depends:[S01,S03]`
+- [x] **S04: Monotonic Archive** `risk:low` `depends:[S01,S03]`
   > After this: multiple pipeline iterations are archived on disk with full metrics, pipeline.py diffs, and meta-agent rationale; archive is readable and queryable. Proven by writing 5+ iterations and reading them back with filtering.
 
 - [ ] **S05: The Optimization Loop** `risk:high` `depends:[S01,S02,S03,S04]`
