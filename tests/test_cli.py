@@ -11,7 +11,7 @@ import pytest
 
 from autoagent.cli import main
 from autoagent.meta_agent import ProposalResult
-from autoagent.state import STARTER_PIPELINE
+from autoagent.state import STARTER_PIPELINE, StateManager
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +125,7 @@ class TestHelp:
         assert "init" in result.stdout
         assert "status" in result.stdout
         assert "run" in result.stdout
+        assert "new" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -323,3 +324,155 @@ class TestColdStart:
         benchmark_desc = args[0][0]
         assert isinstance(benchmark_desc, str)
         assert len(benchmark_desc) > 0
+
+
+# ---------------------------------------------------------------------------
+# new (interview)
+# ---------------------------------------------------------------------------
+
+
+# 6 phases (goal, metrics, constraints, search_space, benchmark, budget)
+# + 1 confirmation = 7 user inputs
+_NEW_ANSWERS = [
+    "Optimize retrieval accuracy for medical Q&A",          # goal
+    "precision, recall, F1-score",                          # metrics
+    "Budget under $50, must use open-source models only",   # constraints
+    "RAG with BM25 vs dense retrieval, chunk sizes 256-1024",  # search_space
+    "medqa.json with exact_match scoring",                  # benchmark
+    "25 dollars total",                                     # budget (>=10 chars)
+    "yes",                                                  # confirmation
+]
+
+
+class TestNew:
+    """Integration tests for the ``autoagent new`` interview command."""
+
+    def test_cmd_new_creates_config(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Full interview writes config.json with expected fields."""
+        from autoagent.interview import SequenceMockLLM
+
+        answers_iter = iter(_NEW_ANSWERS)
+        mock_llm = SequenceMockLLM(["mock follow-up", "# Generated Context\nProject context."])
+
+        with (
+            patch("autoagent.cli.MockLLM", return_value=mock_llm),
+            patch("autoagent.cli.MetricsCollector"),
+            patch("builtins.input", side_effect=lambda prompt="": next(answers_iter, "")),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 0
+
+        # Verify config.json was written with interview data
+        sm = StateManager(tmp_path)
+        config = sm.read_config()
+        assert config.goal == "Optimize retrieval accuracy for medical Q&A"
+        assert len(config.metric_priorities) == 3
+        assert "precision" in config.metric_priorities
+        assert len(config.constraints) == 2
+        assert config.budget_usd == 25.0
+
+        captured = capsys.readouterr()
+        assert "Project configured" in captured.out
+        assert "Metrics:     3" in captured.out
+
+    def test_cmd_new_writes_context_md(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Interview writes a non-empty context.md file."""
+        from autoagent.interview import SequenceMockLLM
+
+        answers_iter = iter(_NEW_ANSWERS)
+        mock_llm = SequenceMockLLM(["mock probe", "# Project Context\nDetailed context."])
+
+        with (
+            patch("autoagent.cli.MockLLM", return_value=mock_llm),
+            patch("autoagent.cli.MetricsCollector"),
+            patch("builtins.input", side_effect=lambda prompt="": next(answers_iter, "")),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 0
+
+        context_path = tmp_path / ".autoagent" / "context.md"
+        assert context_path.is_file()
+        content = context_path.read_text(encoding="utf-8")
+        assert len(content) > 0
+
+    def test_cmd_new_already_initialized_with_goal(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """When project already has a goal, user is asked to confirm overwrite."""
+        from autoagent.interview import SequenceMockLLM
+
+        # Pre-initialize with an existing goal
+        sm = StateManager(tmp_path)
+        sm.init_project(goal="Existing goal")
+
+        # User says "no" to overwrite
+        with patch("builtins.input", return_value="no"):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "already has a goal" in captured.err
+        assert "Aborted" in captured.out
+
+        # Config unchanged
+        config = sm.read_config()
+        assert config.goal == "Existing goal"
+
+    def test_cmd_new_already_initialized_overwrite(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """When user confirms overwrite, interview runs and updates config."""
+        from autoagent.interview import SequenceMockLLM
+
+        # Pre-initialize with an existing goal
+        sm = StateManager(tmp_path)
+        sm.init_project(goal="Old goal")
+
+        # "yes" to overwrite, then 6 phase answers + confirmation
+        all_inputs = ["yes"] + _NEW_ANSWERS
+        input_iter = iter(all_inputs)
+        mock_llm = SequenceMockLLM(["probe", "# Context\nNew context."])
+
+        with (
+            patch("autoagent.cli.MockLLM", return_value=mock_llm),
+            patch("autoagent.cli.MetricsCollector"),
+            patch("builtins.input", side_effect=lambda prompt="": next(input_iter, "")),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 0
+        config = sm.read_config()
+        assert config.goal == "Optimize retrieval accuracy for medical Q&A"
+
+    def test_cmd_new_keyboard_interrupt(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """KeyboardInterrupt during interview exits cleanly with message."""
+        from autoagent.interview import SequenceMockLLM
+
+        mock_llm = SequenceMockLLM(["probe"])
+
+        def raise_interrupt(prompt=""):
+            raise KeyboardInterrupt
+
+        with (
+            patch("autoagent.cli.MockLLM", return_value=mock_llm),
+            patch("autoagent.cli.MetricsCollector"),
+            patch("builtins.input", side_effect=raise_interrupt),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main(["--project-dir", str(tmp_path), "new"])
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "interrupted" in captured.err.lower()

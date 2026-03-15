@@ -14,6 +14,7 @@ from pathlib import Path
 from autoagent.archive import Archive
 from autoagent.benchmark import Benchmark
 from autoagent.evaluation import Evaluator
+from autoagent.interview import InterviewOrchestrator, SequenceMockLLM
 from autoagent.loop import OptimizationLoop
 from autoagent.meta_agent import MetaAgent
 from autoagent.primitives import MetricsCollector, MockLLM, PrimitivesContext, MockRetriever
@@ -44,6 +45,76 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     print(f"Initialized autoagent project at {sm.aa_dir}")
+    return 0
+
+
+def cmd_new(args: argparse.Namespace) -> int:
+    """Run the interactive interview and write config + context to disk."""
+    project_dir = _resolve_project_dir(args)
+    sm = StateManager(project_dir)
+
+    # Auto-initialize if needed
+    if not sm.is_initialized():
+        try:
+            sm.init_project()
+            print(f"Initialized autoagent project at {sm.aa_dir}")
+        except OSError as exc:
+            print(f"Error: could not initialize project: {exc}", file=sys.stderr)
+            return 1
+    else:
+        # Warn if config already has a goal
+        try:
+            existing_config = sm.read_config()
+        except (OSError, ValueError, KeyError):
+            existing_config = None
+
+        if existing_config and existing_config.goal:
+            print(
+                f"Warning: project already has a goal configured: "
+                f"{existing_config.goal!r}",
+                file=sys.stderr,
+            )
+            try:
+                confirm = input("Overwrite existing configuration? (yes/no) > ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\nAborted.", file=sys.stderr)
+                return 1
+            if confirm not in ("yes", "y"):
+                print("Aborted.")
+                return 0
+
+    # Create orchestrator — MockLLM placeholder until real provider wiring
+    collector = MetricsCollector()
+    llm = MockLLM(collector=collector)
+    orchestrator = InterviewOrchestrator(llm=llm)
+
+    try:
+        result = orchestrator.run()
+    except KeyboardInterrupt:
+        # Clean exit with partial state info
+        answered = list(orchestrator.state.keys())
+        print(
+            f"\nInterview interrupted. "
+            f"Partial answers collected for: {', '.join(answered) if answered else 'none'}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Write config and context to disk
+    sm.write_config(result.config)
+    context_path = sm.aa_dir / "context.md"
+    context_path.write_text(result.context, encoding="utf-8")
+
+    # Print summary
+    goal = result.config.goal or "(not set)"
+    metric_count = len(result.config.metric_priorities)
+    constraint_count = len(result.config.constraints)
+    print(f"\nProject configured:")
+    print(f"  Goal:        {goal}")
+    print(f"  Metrics:     {metric_count}")
+    print(f"  Constraints: {constraint_count}")
+    print(f"  Config:      {sm.config_path}")
+    print(f"  Context:     {context_path}")
     return 0
 
 
@@ -215,6 +286,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("init", help="Initialize a new autoagent project")
     sub.add_parser("status", help="Show current project status")
+    sub.add_parser("new", help="Run interactive interview to configure a new project")
 
     run_parser = sub.add_parser("run", help="Run the optimization loop")
     run_parser.add_argument(
@@ -249,6 +321,7 @@ def main(argv: list[str] | None = None) -> None:
 
     dispatch = {
         "init": cmd_init,
+        "new": cmd_new,
         "run": cmd_run,
         "status": cmd_status,
     }

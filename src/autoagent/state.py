@@ -56,6 +56,9 @@ class ProjectConfig:
     })
     budget_usd: float | None = None
     pipeline_path: str = "pipeline.py"
+    search_space: list[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
+    metric_priorities: list[str] = field(default_factory=list)
 
     def asdict(self) -> dict[str, Any]:
         """Serialize to a plain dict suitable for JSON encoding."""

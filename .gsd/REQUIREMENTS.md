@@ -6,17 +6,6 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Active
 
-### R007 — GSD-2 Depth Interview Phase
-- Class: primary-user-loop
-- Status: active
-- Description: Before optimization begins, orchestrator deeply interrogates the user about goal, metrics, constraints, search space — investigates codebase, checks library docs, challenges vagueness
-- Why it matters: Garbage in, garbage out — the interview quality determines optimization quality
-- Source: user
-- Primary owning slice: M004/S01
-- Supporting slices: M004/S02, M004/S03
-- Validation: unmapped
-- Notes: Must probe gray areas, not just collect inputs
-
 ### R009 — Data Leakage Guardrail
 - Class: quality-attribute
 - Status: validated
@@ -118,6 +107,17 @@ Use it to track what is actively in scope, what has been validated by completed 
 - Notes: Must be visible in archive — why the system chose to explore vs exploit
 
 ## Validated
+
+### R007 — GSD-2 Depth Interview Phase
+- Class: primary-user-loop
+- Status: validated
+- Description: Before optimization begins, orchestrator deeply interrogates the user about goal, metrics, constraints, search space — investigates codebase, checks library docs, challenges vagueness
+- Why it matters: Garbage in, garbage out — the interview quality determines optimization quality
+- Source: user
+- Primary owning slice: M004/S01
+- Supporting slices: M004/S02, M004/S03
+- Validation: validated — InterviewOrchestrator runs 6-phase multi-turn LLM conversation (goal → metrics → constraints → search_space → benchmark → budget + confirmation). Vague-input detection (< 10 chars, known phrases) triggers LLM-generated follow-up probes with max 2 retries per phase. Produces extended ProjectConfig (search_space, constraints, metric_priorities) + context.md narrative. `autoagent new` CLI wired with auto-init, overwrite confirmation, KeyboardInterrupt handling. 30 unit tests + 5 CLI integration tests. Contract + integration proof in S01.
+- Notes: Must probe gray areas, not just collect inputs
 
 ### R010 — Multi-Metric Pareto Evaluation
 - Class: quality-attribute
@@ -309,7 +309,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 | R004 | core-capability | validated | M001/S04 | M002/S01 | validated (S04+S05) |
 | R005 | continuity | validated | M001/S06 | M001/S02 | validated (S02+S06) |
 | R006 | core-capability | validated | M001/S02 | M004/S05 | validated (S02+S05) |
-| R007 | primary-user-loop | active | M004/S01 | M004/S02, M004/S03 | unmapped |
+| R007 | primary-user-loop | validated | M004/S01 | M004/S02, M004/S03 | validated (S01) |
 | R008 | core-capability | validated | M001/S03 | M004/S02 | validated (S03+S05) |
 | R009 | quality-attribute | validated | M003/S03 | M001/S03 | validated (S03) |
 | R010 | quality-attribute | validated | M003/S02 | M001/S03 | validated (S02) |
@@ -332,7 +332,7 @@ Use it to track what is actively in scope, what has been validated by completed 
 
 ## Coverage Summary
 
-- Active requirements: 7
+- Active requirements: 6
 - Mapped to slices: 24
-- Validated: 17
+- Validated: 18
 - Unmapped active requirements: 0

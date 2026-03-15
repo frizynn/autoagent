@@ -50,7 +50,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Interview Orchestrator** `risk:high` `depends:[]`
+- [x] **S01: Interview Orchestrator** `risk:high` `depends:[]`
   > After this: `autoagent new` runs a multi-turn LLM-driven interview, challenges vague input with follow-ups, and writes a complete config to `.autoagent/config.json` plus `context.md` — proven via MockLLM test sequences and CLI integration test
 - [ ] **S02: Benchmark Generation** `risk:medium` `depends:[S01]`
   > After this: when the interview finds no benchmark, the system generates `{input, expected}` JSON from goal + sample data, validates for leakage and discriminating power, and writes to `.autoagent/benchmark.json` — proven via MockLLM generation + validation tests
