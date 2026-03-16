@@ -363,6 +363,15 @@ export default function (pi: ExtensionAPI) {
           cmdCtx = ctx;
           iterationCount = 0;
 
+          // Fresh session — clear the setup conversation
+          const freshResult = await ctx.newSession();
+          if (freshResult.cancelled) {
+            loopActive = false;
+            loopPhase = "idle";
+            cmdCtx = null;
+            return;
+          }
+
           // Determine phase: if STATE.md exists, resume iterating; otherwise, explore first
           const stateDoc = readStateDoc();
           if (stateDoc) {
