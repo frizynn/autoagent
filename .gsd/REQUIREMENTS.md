@@ -12,7 +12,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M006/S01
 - Supporting slices: none
-- Validation: unmapped
+- Validation: go command dispatches program.md to the agent via pi.sendMessage(); loop protocol fully defined in program.md. Awaits end-to-end runtime proof with real LLM.
 - Notes: Directly follows Karpathy's autoresearch pattern
 
 ### R102 — Conversational Setup
@@ -34,10 +34,12 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M006/S03
 - Supporting slices: M006/S01
-- Validation: unmapped
+- Validation: program.md defines autoagent/run-<date> naming with collision counter. Dashboard lists autoagent/* branches. session_start shows current experiment branch. Awaits runtime proof of branch creation/switching.
 - Notes: Git history IS the experiment archive — no separate archive system needed
 
-### R104 — Live Dashboard for Agent Loop
+## Validated
+
+### R104 — Live Dashboard for Agent Loop (validated by M006/S03)
 - Class: primary-user-loop
 - Status: validated
 - Description: Dashboard overlay (Ctrl+Alt+A) shows current experiment progress — iterations, scores, keeps/discards. Reads results.tsv from disk since there's no JSONL subprocess anymore.
@@ -48,7 +50,7 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: DashboardOverlay class reads results.tsv, parses all columns, computes score summaries (best/latest/keeps/discards/crashes), refreshes on 2s timer, renders with scroll support (↑↓/j/k/g/G). Ctrl+Alt+A opens as centered overlay (80% width). Handles missing file ("No experiments yet") and git errors gracefully. Box borders via borderAccent theme.
 - Notes: File-watching based instead of JSONL stream based
 
-### R105 — Dead Code Removal
+### R105 — Dead Code Removal (validated by M006/S01)
 - Class: constraint
 - Status: validated
 - Description: Delete the entire Python optimization framework — OptimizationLoop, MetaAgent, Evaluator, Archive, Pareto, TLA+, Leakage, Sandbox, Summarizer, BenchmarkGenerator, InterviewOrchestrator, MockLLM, OpenAILLM, all 502 tests, the old Pi extension at .pi/extensions/, pyproject.toml, src/autoagent/, tests/.
@@ -56,49 +58,41 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M006/S01
 - Supporting slices: none
-- Validation: confirmed absent on disk — src/autoagent/, tests/, pyproject.toml, uv.lock, .pi/extensions/autoagent/, 5 extension modules all deleted; tsc builds cleanly
+- Validation: All listed artifacts confirmed absent on disk — src/autoagent/, tests/, pyproject.toml, uv.lock, .pi/extensions/autoagent/, subprocess-manager.ts, interview-runner.ts, report-overlay.ts, dashboard-overlay.ts, types.ts. tsc builds cleanly without them.
 - Notes: User explicitly said "delete all unused things"
 
-### R106 — Minimal Command Surface
+### R106 — Minimal Command Surface (validated by M006/S02)
 - Class: primary-user-loop
-- Status: active
+- Status: validated
 - Description: Two commands max — /autoagent go (start loop) and /autoagent stop. Everything else is contextual — launch shows status, no project triggers conversational setup.
 - Why it matters: User-friendly and simple, not that much commands
 - Source: inferred
 - Primary owning slice: M006/S02
 - Supporting slices: M006/S01
-- Validation: go command guards against missing pipeline.py/prepare.py with contextual "Project not ready" notification; only go and stop commands exist. Awaits live runtime verification.
+- Validation: index.ts has exactly 2 case statements (go, stop). go command guards against missing pipeline.py/prepare.py with contextual "Project not ready" notification. No other commands registered.
 - Notes: User's exact words — "user friendly and simple, not that much commands, only necessary"
 
-### R107 — Results Tracking in TSV
+### R107 — Results Tracking in TSV (validated by M006/S03)
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: results.tsv is the experiment log. Tab-separated: commit, score, status (keep/discard/crash), description. Simple, human-readable, grep-friendly.
 - Why it matters: The experiment record must be simple and inspectable — no JSON blobs, no databases
 - Source: autoresearch
 - Primary owning slice: M006/S01
 - Supporting slices: M006/S03
-- Validation: unmapped
+- Validation: program.md defines results.tsv format (commit, score, status, description tab-separated). Dashboard parseResultsTsv() reads and parses the same format. Both producer and consumer implemented and verified.
 - Notes: Dashboard reads this file for progress display
 
-### R108 — Simplicity Criterion
+### R108 — Simplicity Criterion (validated by M006/S01)
 - Class: quality-attribute
-- Status: active
+- Status: validated
 - Description: program.md includes the simplicity criterion — improvements must justify their complexity. Removing code for equal results is a win. Small improvements with ugly complexity are rejected.
 - Why it matters: Prevents the optimizer from accumulating cruft — keeps pipeline.py readable
 - Source: autoresearch
 - Primary owning slice: M006/S01
 - Supporting slices: none
-- Validation: unmapped
+- Validation: program.md contains explicit "The Simplicity Criterion" section with complexity-justified keep/discard rules.
 - Notes: Karpathy's exact framing — "A 0.001 improvement that adds 20 ugly lines? Probably not worth it."
-
-## Validated
-
-(Previous M001-M005 requirements moved to legacy — the framework they validated has been deleted)
-
-### R105 — Dead Code Removal (validated by M006/S01)
-- All listed artifacts confirmed absent: src/autoagent/, tests/, pyproject.toml, uv.lock, .pi/extensions/autoagent/, subprocess-manager.ts, interview-runner.ts, report-overlay.ts, dashboard-overlay.ts, types.ts
-- tsc builds cleanly without them
 
 ## Deferred
 
@@ -132,31 +126,21 @@ This file is the explicit capability and coverage contract for the project.
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R101 | core-capability | active | M006/S01 | none | unmapped |
-| R102 | primary-user-loop | active | M006/S02 | none | unmapped |
-| R103 | core-capability | active | M006/S03 | M006/S01 | unmapped |
-| R104 | primary-user-loop | active | M006/S03 | none | unmapped |
-| R105 | constraint | validated | M006/S01 | none | S01 UAT tests 1-2; all artifacts absent |
-| R106 | primary-user-loop | active | M006/S02 | M006/S01 | S02 go guard verified; contextual rejection confirmed |
-| R107 | core-capability | active | M006/S01 | M006/S03 | S01 defines format; S03 parses and displays |
-| R108 | quality-attribute | active | M006/S01 | none | unmapped |
+| R101 | core-capability | active | M006/S01 | none | go dispatches program.md; awaits runtime proof |
+| R102 | primary-user-loop | active | M006/S02 | none | system.md MODE A contracts complete; awaits live testing |
+| R103 | core-capability | active | M006/S03 | M006/S01 | protocol defined, dashboard lists branches; awaits runtime proof |
+| R104 | primary-user-loop | validated | M006/S03 | none | DashboardOverlay reads results.tsv, Ctrl+Alt+A overlay, 2s refresh |
+| R105 | constraint | validated | M006/S01 | none | all artifacts absent; tsc builds cleanly |
+| R106 | primary-user-loop | validated | M006/S02 | M006/S01 | exactly 2 commands (go, stop); go guard verified |
+| R107 | core-capability | validated | M006/S01 | M006/S03 | format defined in program.md; parsed by dashboard |
+| R108 | quality-attribute | validated | M006/S01 | none | program.md Simplicity Criterion section |
 | R109 | anti-feature | out-of-scope | none | none | n/a |
 | R110 | anti-feature | out-of-scope | none | none | n/a |
 
 ## Coverage Summary
 
-- Active requirements: 7
-- Mapped to slices: 7
-- Validated: 1
-- Unmapped active requirements: 0
-equirements: 0
- | unmapped |
-| R109 | anti-feature | out-of-scope | none | none | n/a |
-| R110 | anti-feature | out-of-scope | none | none | n/a |
-
-## Coverage Summary
-
-- Active requirements: 7
-- Mapped to slices: 7
-- Validated: 1
+- Active requirements: 3 (R101, R102, R103)
+- Validated requirements: 5 (R104, R105, R106, R107, R108)
+- Deferred: 0
+- Out of scope: 2 (R109, R110)
 - Unmapped active requirements: 0

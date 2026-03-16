@@ -12,12 +12,14 @@ The autonomous optimization loop — describe what you want to improve, walk awa
 
 ## Current State
 
-M001-M005 built a Python optimization framework that has been fully deleted. M006 is complete — all three slices delivered:
-- **S01** removed the old framework and built the LLM-as-optimizer loop (program.md, system.md, go/stop commands, results.tsv format)
-- **S02** added conversational setup with system.md MODE A/B, prepare.py/pipeline.py contracts, and go command guards
+M001-M005 built a Python optimization framework that has been fully deleted. M006 completed the autoresearch pivot:
+- **S01** removed the old framework entirely and built the LLM-as-optimizer loop (program.md protocol, system.md with MODE A/B, go/stop commands, results.tsv format)
+- **S02** added conversational setup with prepare.py/pipeline.py contracts and skeleton, baseline validation, and go command guards
 - **S03** built the dashboard overlay (Ctrl+Alt+A) reading results.tsv with score summaries, git branch detection, experiment listing, and wired stop to ctx.abort()
 
 The extension consists of two files: `index.ts` (commands, events, shortcut wiring) and `dashboard.ts` (overlay component), plus prompts in `system.md` and `program.md`.
+
+5 of 8 requirements validated (R104-R108). 3 remain active awaiting end-to-end runtime proof (R101 autoresearch loop, R102 conversational setup, R103 multi-experiment branches).
 
 ## Architecture / Key Patterns
 
@@ -29,6 +31,8 @@ The extension consists of two files: `index.ts` (commands, events, shortcut wiri
 - **TSV experiment log** (`results.tsv`) — commit hash, score, status, description
 - **Conversational setup** — no rigid interview, LLM helps write prepare.py + baseline through conversation
 - **Minimal commands** — `/autoagent go` and `/autoagent stop`, everything else contextual
+- **MODE A/B** — system.md switches behavior based on .autoagent/ existence (setup vs. status)
+- **Dashboard overlay** — Ctrl+Alt+A opens DashboardOverlay reading results.tsv with 2s refresh
 
 ## Capability Contract
 
