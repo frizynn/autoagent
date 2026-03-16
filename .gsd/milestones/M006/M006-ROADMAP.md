@@ -1,64 +1,76 @@
-# M006: Standalone TUI
+# M006: Autoresearch Pivot
 
-**Vision:** `autoagent` is a fully interactive terminal application. Type `autoagent`, get a dashboard that lets you do everything: init projects, configure them via interview, launch optimization runs, monitor them live, view reports, and stop runs — all from one persistent TUI.
+**Vision:** Delete the old Python optimization framework entirely and wire the autoresearch model end-to-end. The LLM itself is the optimizer — it follows program.md, edits pipeline.py, runs prepare.py eval, keeps or reverts via git. Conversational setup, minimal commands, multi-experiment on git branches, dashboard from disk.
 
 ## Success Criteria
 
-- Typing `autoagent` (no args) opens a live TUI that stays open
-- From the TUI, user can initialize a new project if none exists
-- From the TUI, user can configure a project via the interview flow
-- From the TUI, user can start an optimization run and see it progress live
-- From the TUI, user can stop a running optimization
-- From the TUI, user can view the optimization report
-- The TUI shows current project status at all times (iteration, score, cost, phase)
-- All existing headless CLI modes still work (`autoagent run`, `autoagent run --jsonl`, etc.)
+- Old Python framework completely removed — no src/autoagent/, no tests/, no pyproject.toml
+- `/autoagent go` dispatches the LLM to follow program.md and iterate autonomously
+- Conversational setup produces working prepare.py + pipeline.py from natural language
+- Multiple experiments on separate git branches with independent results.tsv
+- Dashboard overlay shows experiment progress from results.tsv
+- Only two commands: `/autoagent go` and `/autoagent stop`
 
 ## Key Risks / Unknowns
 
-- Interview flow is multi-turn interactive — needs to work inside the TUI without blocking the event loop
-- The optimization loop currently runs in-process via thread worker — need to decide if it should be a subprocess (like the Pi extension) for crash isolation
-- Textual's input widgets need to handle the interview's vague-answer detection and follow-up probes
+- **Dashboard without JSONL stream** — must switch from subprocess event stream to file-watching results.tsv
+- **Evaluator generation quality** — LLM must produce a prepare.py that actually measures what the user cares about
+- **Git branch edge cases** — dirty working tree, concurrent branch operations, experiment isolation
 
 ## Proof Strategy
 
-- Interview-in-TUI → retire in S02 by proving the full interview flow works inside Textual
-- Loop isolation → retire in S01 by proving subprocess-based loop with JSONL streaming works
+- Dashboard without JSONL → retire in S03 by proving dashboard updates from results.tsv file reads
+- Evaluator generation → retire in S02 by proving conversational setup produces a prepare.py that scores a baseline pipeline
+- Git branch management → retire in S03 by proving experiments on separate branches with independent logs
 
 ## Verification Classes
 
-- Contract verification: pytest + headless Textual tests
-- Integration verification: end-to-end flow from TUI init → interview → run → report
-- Operational verification: subprocess lifecycle (start/stop/crash recovery)
-- UAT / human verification: visual check that the TUI looks right and responds to input
+- Contract verification: file deletion confirmed, extension commands work, program.md dispatched
+- Integration verification: real LLM call via Pi SDK runs the loop, git operations create/switch branches
+- Operational verification: none (local dev only)
+- UAT / human verification: conversational setup quality, dashboard usability
 
 ## Milestone Definition of Done
 
 This milestone is complete only when all are true:
 
-- All slice deliverables are complete
-- `autoagent` with no args opens a fully functional TUI
-- User can go from zero to a running optimization without leaving the TUI
-- Headless CLI modes are unbroken
-- Reports viewable inside the TUI
-- 509+ tests passing
+- Old framework deleted (src/autoagent/, tests/, pyproject.toml, .pi/extensions/)
+- `/autoagent go` runs a real autoresearch loop with actual LLM calls
+- Conversational setup from natural language to working prepare.py + pipeline.py
+- Git branch per experiment with keep/discard via git operations
+- Dashboard overlay reads results.tsv and shows iteration progress
+- Only `/autoagent go` and `/autoagent stop` as commands — everything else contextual
+- TUI builds and launches cleanly
+
+## Requirement Coverage
+
+- Covers: R101, R102, R103, R104, R105, R106, R107, R108
+- Partially covers: none
+- Leaves for later: none
+- Orphan risks: none
 
 ## Slices
 
-- [x] **S01: Home screen and subprocess loop runner** `risk:high` `depends:[]`
-  > After this: `autoagent` opens a TUI with project status, can start/stop an optimization run via subprocess, and shows live iteration progress
-- [x] **S02: Interview flow inside TUI** `risk:high` `depends:[S01]`
-  > After this: user can configure a new project via the multi-turn interview without leaving the TUI
-- [x] **S03: Report viewer and polish** `risk:low` `depends:[S01]`
-  > After this: user can view the optimization report inside the TUI, and the overall UX is polished (keybinds, error states, help text)
+- [ ] **S01: Clean Slate + Loop Foundation** `risk:high` `depends:[]`
+  > After this: old Python framework deleted, `/autoagent go` dispatches the LLM to follow program.md — agent edits pipeline.py, runs prepare.py eval, keeps/discards via git, logs to results.tsv
+
+- [ ] **S02: Conversational Setup + Minimal UX** `risk:medium` `depends:[S01]`
+  > After this: launch autoagent with no project, describe what to optimize, LLM writes prepare.py + baseline pipeline.py through conversation. Only `go` and `stop` commands visible.
+
+- [ ] **S03: Multi-Experiment + Dashboard** `risk:medium` `depends:[S01]`
+  > After this: each experiment on its own git branch, switch between them, dashboard overlay reads results.tsv and shows iteration progress with scores and decisions
 
 ## Boundary Map
 
 ### S01 → S02
 
 Produces:
-- `AutoagentApp` Textual app with screen-based navigation
-- `SubprocessRunner` that spawns `autoagent run --jsonl` and streams events
-- Home screen with status cards, event log, and action buttons
+- `program.md` — the autoresearch protocol the LLM follows
+- `templates/pipeline.py` — baseline pipeline template
+- `/autoagent go` command — dispatches program.md to the agent session via `pi.sendMessage()`
+- `/autoagent stop` command — interrupts the running loop
+- `system.md` — system prompt telling the LLM it's AutoAgent
+- Clean repo with no Python framework artifacts
 
 Consumes:
 - nothing (first slice)
@@ -66,8 +78,9 @@ Consumes:
 ### S01 → S03
 
 Produces:
-- Screen infrastructure and navigation patterns
-- Subprocess lifecycle management
+- `program.md` protocol — defines results.tsv format, git branch naming, keep/discard behavior
+- `/autoagent go` command — the loop that S03's dashboard tracks
+- `results.tsv` format — commit, score, status, description (tab-separated)
 
 Consumes:
 - nothing (first slice)
@@ -75,7 +88,8 @@ Consumes:
 ### S02 → S03
 
 Produces:
-- Interview screen with multi-turn input handling
+- Contextual session_start behavior — detects whether project exists
+- Updated system prompt with setup guidance
 
-Consumes:
-- Screen navigation from S01
+Consumes from S01:
+- program.md, templates/pipeline.py, system.md
