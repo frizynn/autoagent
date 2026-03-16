@@ -50,13 +50,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R105 — Dead Code Removal
 - Class: constraint
-- Status: active
+- Status: validated
 - Description: Delete the entire Python optimization framework — OptimizationLoop, MetaAgent, Evaluator, Archive, Pareto, TLA+, Leakage, Sandbox, Summarizer, BenchmarkGenerator, InterviewOrchestrator, MockLLM, OpenAILLM, all 502 tests, the old Pi extension at .pi/extensions/, pyproject.toml, src/autoagent/, tests/.
 - Why it matters: Dead code is confusion — the old framework never ran a real optimization and is fully replaced by the autoresearch model
 - Source: user
 - Primary owning slice: M006/S01
 - Supporting slices: none
-- Validation: unmapped
+- Validation: confirmed absent on disk — src/autoagent/, tests/, pyproject.toml, uv.lock, .pi/extensions/autoagent/, 5 extension modules all deleted; tsc builds cleanly
 - Notes: User explicitly said "delete all unused things"
 
 ### R106 — Minimal Command Surface
@@ -96,6 +96,10 @@ This file is the explicit capability and coverage contract for the project.
 
 (Previous M001-M005 requirements moved to legacy — the framework they validated has been deleted)
 
+### R105 — Dead Code Removal (validated by M006/S01)
+- All listed artifacts confirmed absent: src/autoagent/, tests/, pyproject.toml, uv.lock, .pi/extensions/autoagent/, subprocess-manager.ts, interview-runner.ts, report-overlay.ts, dashboard-overlay.ts, types.ts
+- tsc builds cleanly without them
+
 ## Deferred
 
 (none)
@@ -132,7 +136,7 @@ This file is the explicit capability and coverage contract for the project.
 | R102 | primary-user-loop | active | M006/S02 | none | unmapped |
 | R103 | core-capability | active | M006/S03 | M006/S01 | unmapped |
 | R104 | primary-user-loop | active | M006/S03 | none | unmapped |
-| R105 | constraint | active | M006/S01 | none | unmapped |
+| R105 | constraint | validated | M006/S01 | none | S01 UAT tests 1-2; all artifacts absent |
 | R106 | primary-user-loop | active | M006/S02 | M006/S01 | unmapped |
 | R107 | core-capability | active | M006/S01 | M006/S03 | unmapped |
 | R108 | quality-attribute | active | M006/S01 | none | unmapped |
@@ -141,7 +145,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 8
-- Mapped to slices: 8
-- Validated: 0
+- Active requirements: 7
+- Mapped to slices: 7
+- Validated: 1
 - Unmapped active requirements: 0

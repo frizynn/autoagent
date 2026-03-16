@@ -51,7 +51,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Clean Slate + Loop Foundation** `risk:high` `depends:[]`
+- [x] **S01: Clean Slate + Loop Foundation** `risk:high` `depends:[]`
   > After this: old Python framework deleted, `/autoagent go` dispatches the LLM to follow program.md — agent edits pipeline.py, runs prepare.py eval, keeps/discards via git, logs to results.tsv
 
 - [ ] **S02: Conversational Setup + Minimal UX** `risk:medium` `depends:[S01]`

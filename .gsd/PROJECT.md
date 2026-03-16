@@ -12,7 +12,7 @@ The autonomous optimization loop — describe what you want to improve, walk awa
 
 ## Current State
 
-M001-M005 built a Python optimization framework (OptimizationLoop, MetaAgent, Evaluator, Archive, etc.) with 502 tests against MockLLM. The system never performed a real optimization. Recent commits pivoted toward the autoresearch model: the LLM itself runs the loop via `program.md` protocol. A standalone TUI (`tui/`) exists with onboarding, model selection, and extension loading. M006 completes the pivot — deletes the old framework entirely and wires the autoresearch model end-to-end.
+M001-M005 built a Python optimization framework that has been fully deleted. M006 S01 completed the clean slate — removed src/autoagent/, tests/, pyproject.toml, uv.lock, and 5 old extension modules. The extension now has only `go` and `stop` subcommands. system.md enforces MODE A/B autoresearch protocol. program.md defines the experiment protocol with simplicity criterion, results.tsv format, and git branch naming. S02 (conversational setup) and S03 (multi-experiment + dashboard) remain.
 
 ## Architecture / Key Patterns
 
