@@ -77,6 +77,14 @@ echo "ALL PASS"
 - Imports: `import type { Theme } from "@gsd/pi-coding-agent"` and `import { Key, matchesKey, truncateToWidth, visibleWidth } from "@gsd/pi-tui"` — these are available at pi runtime, not in this project's node_modules.
 - `readFileSync`, `existsSync` from `node:fs`; `join` from `node:path`; `execSync` from `node:child_process`.
 
+## Observability Impact
+
+- **Refresh timer**: dashboard reads `.autoagent/results.tsv` from disk every 2 seconds via `setInterval`. This is the primary runtime signal — changes to the file are reflected in the overlay within 2s.
+- **Git branch detection**: `execSync('git branch --show-current')` runs on each refresh. If git fails, branch shows as "no branch" (graceful degradation, not a crash).
+- **Missing results.tsv**: when the file doesn't exist, the dashboard shows "No experiments yet" — this is the inspectable failure state for new/empty projects.
+- **Score summary**: computed from parsed TSV rows on each render. Best/latest/iterations/keeps/discards/crashes are all derived from the `status` column, making experiment health visible at a glance.
+- **Future agent inspection**: a future agent can verify dashboard state by checking the existence and content of `.autoagent/results.tsv` and the current git branch.
+
 ## Expected Output
 
 - `tui/src/resources/extensions/autoagent/dashboard.ts` — new file exporting `DashboardOverlay` class with full component lifecycle, TSV parsing, git branch detection, scroll handling, and themed box rendering.

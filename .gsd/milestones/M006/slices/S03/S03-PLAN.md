@@ -63,6 +63,12 @@ grep -q "dashboard\|Dashboard" index.ts
 
 # Session start has branch detection
 grep -q "git branch\|getCurrentBranch\|autoagent/" index.ts
+
+# Diagnostic: dashboard handles missing results.tsv gracefully (failure path)
+grep -q "No experiments yet\|No results file" dashboard.ts
+
+# Diagnostic: stop on idle shows user-visible feedback
+grep -q "Nothing running" index.ts
 ```
 
 ## Observability / Diagnostics
@@ -80,7 +86,7 @@ grep -q "git branch\|getCurrentBranch\|autoagent/" index.ts
 
 ## Tasks
 
-- [ ] **T01: Build dashboard overlay component** `est:45m`
+- [x] **T01: Build dashboard overlay component** `est:45m`
   - Why: The dashboard is the riskiest piece — component rendering, TSV parsing, scroll handling, refresh timer. Must follow the GSD Dashboard overlay pattern exactly (class with render/handleInput/invalidate/dispose, setInterval refresh, wrapInBox borders).
   - Files: `tui/src/resources/extensions/autoagent/dashboard.ts`
   - Do: Create DashboardOverlay class following GSD Dashboard pattern. Constructor takes (tui, theme, onClose), starts 2s refresh timer. render(width) builds content lines: header with branch name + running/idle status, score summary (best score, latest score, total iterations, keeps/discards/crashes), results table from last N rows, footer with keyboard hints. Wrap in box with `╭─╮ │ │ ╰─╯` borders using theme.fg("borderAccent"). handleInput handles Escape/scroll keys (↑↓/j/k, g/G). TSV parsing: readFileSync `.autoagent/results.tsv`, split lines, skip header, split('\t', 4) for each row. Git branch via execSync('git branch --show-current'). Handle missing file with try/catch → "No experiments yet". Import from @gsd/pi-coding-agent (Theme) and @gsd/pi-tui (truncateToWidth, visibleWidth, matchesKey, Key).
