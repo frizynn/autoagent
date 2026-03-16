@@ -43,6 +43,7 @@ function getExperimentBranches(): string[] {
 interface ResultRow {
   commit: string;
   score: string;
+  resource: string;
   status: string;
   description: string;
 }
@@ -67,13 +68,14 @@ function parseResultsTsv(projectDir: string): ParsedResults {
       // Skip header line
       if (line.startsWith("commit")) continue;
 
-      const parts = line.split("\t", 4);
+      const parts = line.split("\t", 5);
       if (parts.length >= 4) {
         rows.push({
           commit: parts[0],
           score: parts[1],
-          status: parts[2],
-          description: parts[3],
+          resource: parts.length >= 5 ? parts[2] : "",
+          status: parts.length >= 5 ? parts[3] : parts[2],
+          description: parts.length >= 5 ? parts[4] : parts[3],
         });
       }
     }
@@ -362,12 +364,13 @@ export class DashboardOverlay {
             : r.status === "discard"
               ? "warning"
               : "error";
-        const desc = truncateToWidth(r.description, contentWidth - 30);
+        const desc = truncateToWidth(r.description, contentWidth - 42);
 
         lines.push(
           row(
             `  ${th.fg("text", commitShort.padEnd(10))}` +
               `${th.fg("text", r.score.padEnd(8))}` +
+              `${th.fg("dim", (r.resource || "").padEnd(12))}` +
               `${th.fg(statusColor, r.status.padEnd(10))}` +
               `${th.fg("dim", desc)}`,
           ),

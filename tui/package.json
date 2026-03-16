@@ -7,7 +7,7 @@
     "autoagent": "dist/loader.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -R src/resources dist/",
     "dev": "tsc --watch",
     "start": "node dist/loader.js"
   },
