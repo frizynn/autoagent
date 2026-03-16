@@ -54,7 +54,7 @@ This milestone is complete only when all are true:
 - [x] **S01: Clean Slate + Loop Foundation** `risk:high` `depends:[]`
   > After this: old Python framework deleted, `/autoagent go` dispatches the LLM to follow program.md — agent edits pipeline.py, runs prepare.py eval, keeps/discards via git, logs to results.tsv
 
-- [ ] **S02: Conversational Setup + Minimal UX** `risk:medium` `depends:[S01]`
+- [x] **S02: Conversational Setup + Minimal UX** `risk:medium` `depends:[S01]`
   > After this: launch autoagent with no project, describe what to optimize, LLM writes prepare.py + baseline pipeline.py through conversation. Only `go` and `stop` commands visible.
 
 - [ ] **S03: Multi-Experiment + Dashboard** `risk:medium` `depends:[S01]`

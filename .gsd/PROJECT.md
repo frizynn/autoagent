@@ -12,7 +12,7 @@ The autonomous optimization loop — describe what you want to improve, walk awa
 
 ## Current State
 
-M001-M005 built a Python optimization framework that has been fully deleted. M006 S01 completed the clean slate — removed src/autoagent/, tests/, pyproject.toml, uv.lock, and 5 old extension modules. The extension now has only `go` and `stop` subcommands. system.md enforces MODE A/B autoresearch protocol. program.md defines the experiment protocol with simplicity criterion, results.tsv format, and git branch naming. S02 (conversational setup) and S03 (multi-experiment + dashboard) remain.
+M001-M005 built a Python optimization framework that has been fully deleted. M006 S01 completed the clean slate — removed src/autoagent/, tests/, pyproject.toml, uv.lock, and 5 old extension modules. S02 enriched system.md MODE A with full prepare.py/pipeline.py contracts, a Python skeleton, baseline validation, and explicit completion criteria. The go command now guards against missing project files. S03 (multi-experiment + dashboard) remains.
 
 ## Architecture / Key Patterns
 

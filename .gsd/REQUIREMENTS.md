@@ -23,7 +23,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M006/S02
 - Supporting slices: none
-- Validation: unmapped
+- Validation: system.md MODE A contains full prepare.py contract (score: X.XXXX format), ~25-line skeleton, pipeline.py contract (run(input_data, context) → dict), baseline validation step, and completion criteria. Awaits live LLM conversation testing for full validation.
 - Notes: Replaces the old InterviewOrchestrator rigid phase system
 
 ### R103 — Multi-Experiment via Git Branches
@@ -67,7 +67,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: inferred
 - Primary owning slice: M006/S02
 - Supporting slices: M006/S01
-- Validation: unmapped
+- Validation: go command guards against missing pipeline.py/prepare.py with contextual "Project not ready" notification; only go and stop commands exist. Awaits live runtime verification.
 - Notes: User's exact words — "user friendly and simple, not that much commands, only necessary"
 
 ### R107 — Results Tracking in TSV
@@ -137,7 +137,7 @@ This file is the explicit capability and coverage contract for the project.
 | R103 | core-capability | active | M006/S03 | M006/S01 | unmapped |
 | R104 | primary-user-loop | active | M006/S03 | none | unmapped |
 | R105 | constraint | validated | M006/S01 | none | S01 UAT tests 1-2; all artifacts absent |
-| R106 | primary-user-loop | active | M006/S02 | M006/S01 | unmapped |
+| R106 | primary-user-loop | active | M006/S02 | M006/S01 | S02 go guard verified; contextual rejection confirmed |
 | R107 | core-capability | active | M006/S01 | M006/S03 | unmapped |
 | R108 | quality-attribute | active | M006/S01 | none | unmapped |
 | R109 | anti-feature | out-of-scope | none | none | n/a |
