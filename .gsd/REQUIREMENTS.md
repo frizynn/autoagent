@@ -39,13 +39,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R104 — Live Dashboard for Agent Loop
 - Class: primary-user-loop
-- Status: active
+- Status: validated
 - Description: Dashboard overlay (Ctrl+Alt+A) shows current experiment progress — iterations, scores, keeps/discards. Reads results.tsv from disk since there's no JSONL subprocess anymore.
 - Why it matters: Users need to see what's happening without interrupting the loop
 - Source: user
 - Primary owning slice: M006/S03
 - Supporting slices: none
-- Validation: unmapped
+- Validation: DashboardOverlay class reads results.tsv, parses all columns, computes score summaries (best/latest/keeps/discards/crashes), refreshes on 2s timer, renders with scroll support (↑↓/j/k/g/G). Ctrl+Alt+A opens as centered overlay (80% width). Handles missing file ("No experiments yet") and git errors gracefully. Box borders via borderAccent theme.
 - Notes: File-watching based instead of JSONL stream based
 
 ### R105 — Dead Code Removal
@@ -138,8 +138,19 @@ This file is the explicit capability and coverage contract for the project.
 | R104 | primary-user-loop | active | M006/S03 | none | unmapped |
 | R105 | constraint | validated | M006/S01 | none | S01 UAT tests 1-2; all artifacts absent |
 | R106 | primary-user-loop | active | M006/S02 | M006/S01 | S02 go guard verified; contextual rejection confirmed |
-| R107 | core-capability | active | M006/S01 | M006/S03 | unmapped |
+| R107 | core-capability | active | M006/S01 | M006/S03 | S01 defines format; S03 parses and displays |
 | R108 | quality-attribute | active | M006/S01 | none | unmapped |
+| R109 | anti-feature | out-of-scope | none | none | n/a |
+| R110 | anti-feature | out-of-scope | none | none | n/a |
+
+## Coverage Summary
+
+- Active requirements: 7
+- Mapped to slices: 7
+- Validated: 1
+- Unmapped active requirements: 0
+equirements: 0
+ | unmapped |
 | R109 | anti-feature | out-of-scope | none | none | n/a |
 | R110 | anti-feature | out-of-scope | none | none | n/a |
 

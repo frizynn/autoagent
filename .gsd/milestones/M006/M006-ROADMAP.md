@@ -57,7 +57,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Conversational Setup + Minimal UX** `risk:medium` `depends:[S01]`
   > After this: launch autoagent with no project, describe what to optimize, LLM writes prepare.py + baseline pipeline.py through conversation. Only `go` and `stop` commands visible.
 
-- [ ] **S03: Multi-Experiment + Dashboard** `risk:medium` `depends:[S01]`
+- [x] **S03: Multi-Experiment + Dashboard** `risk:medium` `depends:[S01]`
   > After this: each experiment on its own git branch, switch between them, dashboard overlay reads results.tsv and shows iteration progress with scores and decisions
 
 ## Boundary Map

@@ -12,7 +12,12 @@ The autonomous optimization loop — describe what you want to improve, walk awa
 
 ## Current State
 
-M001-M005 built a Python optimization framework that has been fully deleted. M006 S01 completed the clean slate — removed src/autoagent/, tests/, pyproject.toml, uv.lock, and 5 old extension modules. S02 enriched system.md MODE A with full prepare.py/pipeline.py contracts, a Python skeleton, baseline validation, and explicit completion criteria. The go command now guards against missing project files. S03 (multi-experiment + dashboard) remains.
+M001-M005 built a Python optimization framework that has been fully deleted. M006 is complete — all three slices delivered:
+- **S01** removed the old framework and built the LLM-as-optimizer loop (program.md, system.md, go/stop commands, results.tsv format)
+- **S02** added conversational setup with system.md MODE A/B, prepare.py/pipeline.py contracts, and go command guards
+- **S03** built the dashboard overlay (Ctrl+Alt+A) reading results.tsv with score summaries, git branch detection, experiment listing, and wired stop to ctx.abort()
+
+The extension consists of two files: `index.ts` (commands, events, shortcut wiring) and `dashboard.ts` (overlay component), plus prompts in `system.md` and `program.md`.
 
 ## Architecture / Key Patterns
 
@@ -36,4 +41,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M003: Safety & Verification — TLA+ verification, data leakage guardrail, Pareto evaluation, reward hacking defense, sandbox
 - [x] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting
 - [x] M005: Pi TUI Extension — Interactive dashboard, live loop monitoring, interview overlay, reporting overlay via pi extension
-- [ ] M006: Autoresearch Pivot — Delete old framework, wire LLM-as-optimizer end-to-end, conversational setup, multi-experiment, dashboard
+- [x] M006: Autoresearch Pivot — Delete old framework, wire LLM-as-optimizer end-to-end, conversational setup, multi-experiment, dashboard
