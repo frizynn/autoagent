@@ -1,9 +1,0 @@
-{
-  "name": "@autoagent/pi-extension",
-  "version": "0.1.0",
-  "description": "Pi extension for running autoagent optimization with a live dashboard overlay",
-  "peerDependencies": {
-    "@gsd/pi-coding-agent": "*",
-    "@gsd/pi-tui": "*"
-  }
-}

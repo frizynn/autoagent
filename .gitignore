@@ -75,5 +75,9 @@ vendor/
 coverage/
 .cache/
 tmp/
-tui/node_modules/
-tui/dist/
+
+# ── GSD baseline (auto-generated) ──
+.gsd/gsd.db
+.gsd/DISCUSSION-MANIFEST.json
+.gsd/milestones/**/*-CONTINUE.md
+.gsd/milestones/**/continue.md

@@ -12,7 +12,14 @@ The autonomous optimization loop — describe what you want to improve, walk awa
 
 ## Current State
 
-M001-M005 built a Python optimization framework (OptimizationLoop, MetaAgent, Evaluator, Archive, etc.) with 502 tests against MockLLM. The system never performed a real optimization. Recent commits pivoted toward the autoresearch model: the LLM itself runs the loop via `program.md` protocol. A standalone TUI (`tui/`) exists with onboarding, model selection, and extension loading. M006 completes the pivot — deletes the old framework entirely and wires the autoresearch model end-to-end.
+M001-M005 built a Python optimization framework that has been fully deleted. M006 completed the autoresearch pivot:
+- **S01** removed the old framework entirely and built the LLM-as-optimizer loop (program.md protocol, system.md with MODE A/B, go/stop commands, results.tsv format)
+- **S02** added conversational setup with prepare.py/pipeline.py contracts and skeleton, baseline validation, and go command guards
+- **S03** built the dashboard overlay (Ctrl+Alt+A) reading results.tsv with score summaries, git branch detection, experiment listing, and wired stop to ctx.abort()
+
+The extension consists of two files: `index.ts` (commands, events, shortcut wiring) and `dashboard.ts` (overlay component), plus prompts in `system.md` and `program.md`.
+
+5 of 8 requirements validated (R104-R108). 3 remain active awaiting end-to-end runtime proof (R101 autoresearch loop, R102 conversational setup, R103 multi-experiment branches).
 
 ## Architecture / Key Patterns
 
@@ -24,6 +31,8 @@ M001-M005 built a Python optimization framework (OptimizationLoop, MetaAgent, Ev
 - **TSV experiment log** (`results.tsv`) — commit hash, score, status, description
 - **Conversational setup** — no rigid interview, LLM helps write prepare.py + baseline through conversation
 - **Minimal commands** — `/autoagent go` and `/autoagent stop`, everything else contextual
+- **MODE A/B** — system.md switches behavior based on .autoagent/ existence (setup vs. status)
+- **Dashboard overlay** — Ctrl+Alt+A opens DashboardOverlay reading results.tsv with 2s refresh
 
 ## Capability Contract
 
@@ -36,4 +45,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M003: Safety & Verification — TLA+ verification, data leakage guardrail, Pareto evaluation, reward hacking defense, sandbox
 - [x] M004: Interview & Polish — GSD-2 depth interview, benchmark generation, search space definition, overnight reporting
 - [x] M005: Pi TUI Extension — Interactive dashboard, live loop monitoring, interview overlay, reporting overlay via pi extension
-- [ ] M006: Autoresearch Pivot — Delete old framework, wire LLM-as-optimizer end-to-end, conversational setup, multi-experiment, dashboard
+- [x] M006: Autoresearch Pivot — Delete old framework, wire LLM-as-optimizer end-to-end, conversational setup, multi-experiment, dashboard

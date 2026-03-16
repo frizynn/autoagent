@@ -12,7 +12,7 @@ Before the first experiment:
    - `results.tsv` — experiment log. Append results here.
    - This file (`program.md`) — the protocol you follow.
 
-2. **Create the experiment branch**: `git checkout -b autoagent/run-<date>` (e.g. `autoagent/run-mar15`). The branch must not already exist.
+2. **Create the experiment branch**: `git checkout -b autoagent/run-<date>` (e.g. `autoagent/run-mar15`). The branch must not already exist. If it does, append a counter (e.g. `autoagent/run-mar15-2`).
 
 3. **Initialize results.tsv** if it doesn't exist — create it with just the header row:
    ```
@@ -48,6 +48,17 @@ LOOP FOREVER:
 
 7. **Go to step 1.** Do not stop. Do not ask the user if you should continue.
 
+## The Simplicity Criterion
+
+Prefer simpler solutions. If two approaches achieve the same score, the simpler one wins. Concretely:
+
+- **Fewer lines of code** is better than more.
+- **Standard library** is better than external dependencies.
+- **Direct approaches** are better than clever abstractions.
+- **Removing code** that doesn't contribute to the score is a valid experiment.
+
+When you've plateaued on score, try simplifying — strip out complexity and see if the score holds. A shorter `pipeline.py` at the same score is an improvement.
+
 ## What You CAN Do
 
 - Modify `pipeline.py` — this is the ONLY file you edit for experiments.
@@ -68,11 +79,11 @@ LOOP FOREVER:
 If you've run several experiments without improvement:
 
 1. **Re-read results.tsv** — Look for patterns. Which changes improved the score? Which direction is promising?
-2. **Search the web** — Look for relevant techniques, papers, implementations. Use `search-the-web` or `search_and_read`.
+2. **Search the web** — Look for relevant techniques, papers, implementations.
 3. **Combine near-misses** — If two changes each nearly improved the score, try combining them.
 4. **Try something radical** — Change the fundamental approach, not just parameters.
-5. **Analyze the evaluation** — Read `prepare.py` carefully. Understand exactly what the metric rewards. Design your pipeline to optimize for that.
-6. **Simplification** — Try removing complexity. Sometimes simpler is better. If you can match the score with less code, that's a win.
+5. **Analyze the evaluation** — Read `prepare.py` carefully. Understand exactly what the metric rewards.
+6. **Simplify** — Remove complexity. Sometimes simpler is better.
 
 ## Output Format
 

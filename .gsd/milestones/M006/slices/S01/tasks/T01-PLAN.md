@@ -57,3 +57,11 @@ Remove the entire Python optimization framework and strip the TUI extension down
 - program.md already exists and is close to correct — review for completeness
 - pipeline.py template already exists — keep as-is
 - D073-D078 in DECISIONS.md already capture the architectural rationale
+
+## Observability Impact
+
+- **Session start**: `session_start` event handler reads `.autoagent/` directory presence and `state.json` to display project status on launch. Future agents inspect this path to understand project state.
+- **System prompt injection**: `before_agent_start` appends system.md to the agent's system prompt. If read fails, falls back to inline fallback string (logged via catch).
+- **`go` command dispatch**: Sends program.md content via `pi.sendMessage()` with `customType: "autoagent-go"`. The agent's next turn reflects the dispatched content.
+- **`stop` placeholder**: Shows "Nothing running" notification — visible in TUI. Will gain real behavior in S03.
+- **Build signal**: `tsc --noEmit` pass/fail is the primary build health indicator for this extension.
