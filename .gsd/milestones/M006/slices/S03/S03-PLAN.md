@@ -93,7 +93,7 @@ grep -q "Nothing running" index.ts
   - Verify: `grep -q "class.*Dashboard" tui/src/resources/extensions/autoagent/dashboard.ts && grep -q "results.tsv" tui/src/resources/extensions/autoagent/dashboard.ts && grep -q "handleInput" tui/src/resources/extensions/autoagent/dashboard.ts && grep -q "setInterval" tui/src/resources/extensions/autoagent/dashboard.ts`
   - Done when: dashboard.ts exports a class with render/handleInput/invalidate/dispose, reads results.tsv, detects git branch, handles empty state, has scroll support and 2s refresh timer
 
-- [ ] **T02: Wire dashboard, stop, and branch info into index.ts** `est:30m`
+- [x] **T02: Wire dashboard, stop, and branch info into index.ts** `est:30m`
   - Why: Connects the dashboard component to the shortcut and wires the real stop command. Also enhances session_start with git branch awareness. Completes all S03 integration.
   - Files: `tui/src/resources/extensions/autoagent/index.ts`
   - Do: (1) Import DashboardOverlay from ./dashboard.js. (2) Replace Ctrl+Alt+A placeholder handler with: `await ctx.ui.custom<void>((tui, theme, _kb, done) => new DashboardOverlay(tui, theme, () => done()), { overlay: true, overlayOptions: { width: "80%", minWidth: 60, maxHeight: "80%", anchor: "center" } })`. (3) Replace stop case with: check ctx.isIdle(), if idle show "Nothing running" notification, else call ctx.abort() and show "Experiment loop stopped" notification. (4) Add getCurrentBranch() helper using execSync('git branch --show-current') with try/catch. (5) Enhance session_start: if current branch starts with "autoagent/", include branch name in status line. (6) Add execSync import from node:child_process.

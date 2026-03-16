@@ -118,3 +118,9 @@ echo "ALL PASS"
 ## Expected Output
 
 - `tui/src/resources/extensions/autoagent/index.ts` — modified to import DashboardOverlay, wire Ctrl+Alt+A to overlay, wire stop to ctx.abort(), and show branch info in session_start.
+
+## Observability Impact
+
+- **session_start notification**: Now includes `branch: autoagent/<name>` when on an experiment branch, plus `Ctrl+Alt+A dashboard` hint. Inspect by launching pi in a project with `.autoagent/` directory.
+- **Stop command feedback**: `ctx.isIdle()` check produces visible user feedback — "Nothing running to stop." when idle, "⚡ Experiment loop stopped." when aborting. Inspect by running `/autoagent stop` with and without a running agent turn.
+- **Dashboard overlay**: Ctrl+Alt+A opens DashboardOverlay which reads `.autoagent/results.tsv` every 2s. Inspect by pressing the shortcut — overlay renders branch, scores, results table. On error (no results file, git failure), dashboard shows graceful empty state messages.

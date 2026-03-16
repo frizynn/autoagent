@@ -3,13 +3,13 @@
  *
  * Commands:
  *   /autoagent go    — read program.md and dispatch the agent to run the experiment loop
- *   /autoagent stop  — stop the running loop (placeholder until S03)
+ *   /autoagent stop  — stop the running loop via ctx.abort()
  *
  * Shortcuts:
- *   Ctrl+Alt+A — placeholder (will toggle dashboard in S03)
+ *   Ctrl+Alt+A — toggle dashboard overlay (experiment status, scores, branch info)
  *
  * Events:
- *   session_start    — reads .autoagent/ disk state and shows project status
+ *   session_start    — reads .autoagent/ disk state and shows project status with branch info
  *   before_agent_start — injects system.md into the agent's system prompt
  */
 
@@ -18,8 +18,16 @@ import { Key } from "@gsd/pi-tui";
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
+import { DashboardOverlay } from "./dashboard.js";
 
 const __extensionDir = dirname(fileURLToPath(import.meta.url));
+
+function getCurrentBranch(): string | null {
+  try {
+    return execSync("git branch --show-current", { encoding: "utf-8", cwd: process.cwd() }).trim() || null;
+  } catch { return null; }
+}
 
 export default function (pi: ExtensionAPI) {
   // ── System prompt injection — tells the LLM it's AutoAgent ────────────
@@ -74,8 +82,11 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
+    const branch = getCurrentBranch();
+    const branchInfo = branch?.startsWith("autoagent/") ? ` · branch: ${branch}` : "";
+
     ctx.ui.notify(
-      `⚡ AutoAgent\n${statusLine}\n\nCommands: /autoagent go | stop`,
+      `⚡ AutoAgent${branchInfo}\n${statusLine}\n\nCommands: /autoagent go | stop · Ctrl+Alt+A dashboard`,
       "info",
     );
   });
@@ -150,8 +161,12 @@ export default function (pi: ExtensionAPI) {
         }
 
         case "stop": {
-          // Placeholder — will gain real interrupt behavior in S03
-          ctx.ui.notify("Nothing running to stop.", "info");
+          if (ctx.isIdle()) {
+            ctx.ui.notify("Nothing running to stop.", "info");
+          } else {
+            ctx.abort();
+            ctx.ui.notify("⚡ Experiment loop stopped.", "info");
+          }
           return;
         }
 
@@ -164,11 +179,24 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // ── Ctrl+Alt+A shortcut — placeholder for future dashboard ─────────────
+  // ── Ctrl+Alt+A shortcut — open dashboard overlay ────────────────────
   pi.registerShortcut(Key.ctrlAlt("a"), {
-    description: "AutoAgent dashboard (coming soon)",
+    description: "AutoAgent dashboard",
     handler: async (ctx) => {
-      ctx.ui.notify("Dashboard not yet available — coming in S03.", "info");
+      await ctx.ui.custom<void>(
+        (tui, theme, _kb, done) => {
+          return new DashboardOverlay(tui, theme, () => done());
+        },
+        {
+          overlay: true,
+          overlayOptions: {
+            width: "80%",
+            minWidth: 60,
+            maxHeight: "80%",
+            anchor: "center",
+          },
+        },
+      );
     },
   });
 }
