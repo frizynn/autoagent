@@ -103,9 +103,22 @@ export default function (pi: ExtensionAPI) {
 
       switch (subcommand) {
         case "go": {
-          // Read program.md and dispatch the agent to follow it
+          // Guard: require pipeline.py and prepare.py before dispatching
           const projectDir = process.cwd();
-          const localProgramPath = join(projectDir, ".autoagent", "program.md");
+          const autoagentDir = join(projectDir, ".autoagent");
+          const hasPipeline = existsSync(join(autoagentDir, "pipeline.py"));
+          const hasPrepare = existsSync(join(autoagentDir, "prepare.py"));
+
+          if (!hasPipeline || !hasPrepare) {
+            ctx.ui.notify(
+              "Project not ready — describe what you want to optimize and I'll help set it up.",
+              "warning",
+            );
+            return;
+          }
+
+          // Read program.md and dispatch the agent to follow it
+          const localProgramPath = join(autoagentDir, "program.md");
           const bundledProgramPath = join(__extensionDir, "prompts", "program.md");
           let programContent: string;
 

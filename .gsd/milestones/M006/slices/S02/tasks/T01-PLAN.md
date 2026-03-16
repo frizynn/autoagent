@@ -63,6 +63,13 @@ This task enriches MODE A with the full prepare.py and pipeline.py contracts, ad
 - `tsc --noEmit` — zero errors
 - Manual read of system.md MODE A confirms the skeleton is concise (~25 lines), not bloated
 
+## Observability Impact
+
+- **New signal**: go command emits a user-visible notify when pipeline.py or prepare.py is missing — future agents can verify this by checking the go handler's early-return path in index.ts
+- **Inspection**: `verify-s02.sh` serves as a durable diagnostic — run it to check that all content contracts and guard logic remain intact after any changes
+- **Failure state**: go guard prevents dispatch when project files are missing; the notification message tells the user what's wrong (no silent failure, no crash)
+- **No new logs or persistent state** — this task modifies prompt content and adds a guard check, both observable through file content and TUI notifications
+
 ## Inputs
 
 - `tui/src/resources/extensions/autoagent/prompts/system.md` — current MODE A/B definition from S01

@@ -40,12 +40,20 @@
 
 ## Tasks
 
-- [ ] **T01: Enrich system.md MODE A and guard go command** `est:45m`
+- [x] **T01: Enrich system.md MODE A and guard go command** `est:45m`
   - Why: system.md MODE A is too vague for the LLM to produce correct prepare.py files — it doesn't know the output format, the expected structure, or how to validate the result. The go command dispatches even with no project files. Both gaps must close together since they define the same user flow (no project → setup → go).
   - Files: `tui/src/resources/extensions/autoagent/prompts/system.md`, `tui/src/resources/extensions/autoagent/index.ts`, `.gsd/milestones/M006/slices/S02/verify-s02.sh`
   - Do: (1) Rewrite system.md MODE A to include prepare.py output contract with exact format, a concise skeleton (~25 lines), pipeline.py contract, baseline validation step, and explicit completion criteria. Remove "Copy program.md" step. (2) Add existence check in index.ts go command for `.autoagent/pipeline.py` and `.autoagent/prepare.py` — if missing, show setup prompt via notify and return without dispatching. (3) Write verify-s02.sh with grep/content checks for all verification criteria. (4) Run tsc --noEmit.
   - Verify: `bash .gsd/milestones/M006/slices/S02/verify-s02.sh` passes, `tsc --noEmit` zero errors
   - Done when: all verification checks pass, system.md MODE A is complete enough to guide an LLM through setup, go refuses dispatch without project files
+
+## Observability / Diagnostics
+
+- **go guard rejection**: `ctx.ui.notify()` with "Project not ready" message — visible in TUI notification area when user runs `/autoagent go` without required files
+- **session_start status**: existing notification already surfaces missing file state (from S01)
+- **Verification script**: `verify-s02.sh` checks all content contracts and guard logic — runnable at any time to confirm slice invariants hold
+- **Failure visibility**: go command returns early without dispatching when files missing — no silent failure, explicit user-facing message
+- **No secrets or credentials** in this slice — nothing to redact
 
 ## Files Likely Touched
 
