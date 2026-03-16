@@ -1,0 +1,24 @@
+{
+  "name": "autoagent-tui",
+  "version": "0.1.0",
+  "description": "Autonomous optimization agent — interactive TUI powered by Pi SDK",
+  "type": "module",
+  "bin": {
+    "autoagent": "dist/loader.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -R src/resources dist/",
+    "dev": "tsc --watch",
+    "start": "node dist/loader.js"
+  },
+  "dependencies": {
+    "gsd-pi": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

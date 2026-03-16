@@ -1,0 +1,9 @@
+{
+  "name": "autoagent",
+  "version": "0.1.0",
+  "piConfig": {
+    "name": "autoagent",
+    "displayName": "AutoAgent",
+    "configDirName": ".autoagent-agent"
+  }
+}
