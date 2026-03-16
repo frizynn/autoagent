@@ -58,13 +58,25 @@ export default function (pi: ExtensionAPI) {
       // Check for key project files
       const hasPipeline = existsSync(join(autoagentDir, "pipeline.py"));
       const hasPrepare = existsSync(join(autoagentDir, "prepare.py"));
+      const hasConfig = existsSync(join(autoagentDir, "config.json"));
       const hasResults = existsSync(join(autoagentDir, "results.tsv"));
 
-      if (!hasPipeline || !hasPrepare) {
-        statusLine = "Project incomplete — missing " +
-          [!hasPipeline && "pipeline.py", !hasPrepare && "prepare.py"]
-            .filter(Boolean)
-            .join(", ");
+      // Determine target file
+      let targetLabel = "pipeline.py";
+      if (hasConfig) {
+        try {
+          const config = JSON.parse(readFileSync(join(autoagentDir, "config.json"), "utf-8"));
+          if (config.target) targetLabel = config.target;
+        } catch { /* ignore */ }
+      }
+
+      const hasTarget = hasPipeline || hasConfig;
+
+      if (!hasTarget || !hasPrepare) {
+        const missing = [!hasTarget && "target file", !hasPrepare && "prepare.py"]
+          .filter(Boolean)
+          .join(", ");
+        statusLine = `Project incomplete — missing ${missing}`;
       } else {
         // Count experiment results if results.tsv exists
         let iterCount = 0;
@@ -77,8 +89,8 @@ export default function (pi: ExtensionAPI) {
           } catch { /* ignore */ }
         }
         statusLine = iterCount > 0
-          ? `Project ready · ${iterCount} experiment${iterCount !== 1 ? "s" : ""} logged`
-          : "Project ready · no experiments yet — use /autoagent go";
+          ? `Optimizing ${targetLabel} · ${iterCount} experiment${iterCount !== 1 ? "s" : ""} logged`
+          : `Optimizing ${targetLabel} · no experiments yet — use /autoagent go`;
       }
     }
 
@@ -114,18 +126,36 @@ export default function (pi: ExtensionAPI) {
 
       switch (subcommand) {
         case "go": {
-          // Guard: require pipeline.py and prepare.py before dispatching
+          // Guard: require prepare.py + (pipeline.py or config.json with target) before dispatching
           const projectDir = process.cwd();
           const autoagentDir = join(projectDir, ".autoagent");
-          const hasPipeline = existsSync(join(autoagentDir, "pipeline.py"));
           const hasPrepare = existsSync(join(autoagentDir, "prepare.py"));
+          const hasPipeline = existsSync(join(autoagentDir, "pipeline.py"));
+          const hasConfig = existsSync(join(autoagentDir, "config.json"));
 
-          if (!hasPipeline || !hasPrepare) {
+          // Need prepare.py always, and either pipeline.py or a config.json pointing at a target
+          if (!hasPrepare || (!hasPipeline && !hasConfig)) {
             ctx.ui.notify(
               "Project not ready — describe what you want to optimize and I'll help set it up.",
               "warning",
             );
             return;
+          }
+
+          // If config.json exists, verify the target file actually exists
+          if (hasConfig && !hasPipeline) {
+            try {
+              const config = JSON.parse(readFileSync(join(autoagentDir, "config.json"), "utf-8"));
+              if (config.target && !existsSync(join(projectDir, config.target))) {
+                ctx.ui.notify(
+                  `Target file not found: ${config.target}`,
+                  "warning",
+                );
+                return;
+              }
+            } catch {
+              // config.json is malformed — let the agent figure it out
+            }
           }
 
           // Read program.md and dispatch the agent to follow it
